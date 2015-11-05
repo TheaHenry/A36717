@@ -2,7 +2,6 @@
 #include <xc.h>
 #include <uart.h>
 #include "A36717SERIAL.h"
-#include "Buffer64.h"
 #include "A36717.h"
 
 /*
@@ -74,8 +73,8 @@ InputData A36717inputdata;
 
 
 
-BUFFER64BYTE uart1_input_buffer;
-BUFFER64BYTE uart1_output_buffer;
+BUFFERBYTE64 uart1_input_buffer;
+BUFFERBYTE64 uart1_output_buffer;
 
 
 //void A36717MakeCRC(unsigned OutputData* data);
@@ -95,9 +94,9 @@ void InitializeA36717Serial(void)
   UART_TX_IE = 1;
 
 
-  UART_BRG  = A36717_SERIAL_UART_BRG_VALUE;
-  UART_MODE = A36717_SERIAL_UART_MODE_VALUE;
-  UART_STA  = A36717_SERIAL_UART_STA_VALUE;
+  UART_BRG  = A36717_U1BRG_VALUE;  //A36717_SERIAL_UART_BRG_VALUE;
+  UART_MODE = A36717_U1MODE_VALUE; //A36717_SERIAL_UART_MODE_VALUE;
+  UART_STA  = A36717_U1STA_VALUE;  //A36717_SERIAL_UART_STA_VALUE;
  
 
 }
@@ -106,48 +105,48 @@ void InitializeA36717Serial(void)
 void A36717LoadData(void)
 {
   unsigned int crc= 0x5555;
-  Buffer64WriteByte(&uart1_output_buffer,SETTINGS_MSG);
-  Buffer64WriteByte(&uart1_output_buffer, global_data_A36717.top1_set_voltage);
-  Buffer64WriteByte(&uart1_output_buffer, global_data_A36717.top2_set_voltage);
-  Buffer64WriteByte(&uart1_output_buffer, global_data_A36717.heater_set_voltage);
-  Buffer64WriteByte(&uart1_output_buffer, global_data_A36717.heater_enable);
-  Buffer64WriteByte(&uart1_output_buffer, (crc >> 8)); //should be crc hi
-  Buffer64WriteByte(&uart1_output_buffer, (crc & 0xFF)); //should be crc lo
+  BufferByte64WriteByte(&uart1_output_buffer,SETTINGS_MSG);
+  BufferByte64WriteByte(&uart1_output_buffer, global_data_A36717.top1_set_voltage);
+  BufferByte64WriteByte(&uart1_output_buffer, global_data_A36717.top2_set_voltage);
+  BufferByte64WriteByte(&uart1_output_buffer, global_data_A36717.heater_set_voltage);
+  BufferByte64WriteByte(&uart1_output_buffer, global_data_A36717.heater_enable);
+  BufferByte64WriteByte(&uart1_output_buffer, (crc >> 8)); //should be crc hi
+  BufferByte64WriteByte(&uart1_output_buffer, (crc & 0xFF)); //should be crc lo
 };
 
 
 void A36717TransmitData(void)
 {
   A36717LoadData();
-  if ((!UART_STATS_BITS.UTXBF) && (Buffer64IsNotEmpty(&uart1_output_buffer)) )
+  if ((!UART_STATS_BITS.UTXBF) && (BufferByte64IsNotEmpty(&uart1_output_buffer)) )
   { //fill TX REG and then wait for interrupt to fill the rest.
-    U1TXREG =  Buffer64ReadByte(&uart1_output_buffer);
+    U1TXREG =  BufferByte64ReadByte(&uart1_output_buffer);
   }
 };
 
 void A36717ReceiveData(void)
 {
-  int temp = Buffer64BytesInBuffer(&uart1_input_buffer);
-  while ( (Buffer64BytesInBuffer(&uart1_input_buffer)) >= COMMAND_LENGTH) {
+  int temp = BufferByte64BytesInBuffer(&uart1_input_buffer);
+  while ( (BufferByte64BytesInBuffer(&uart1_input_buffer)) >= COMMAND_LENGTH) {
     // Look for a command
     unsigned char read_byte;
     unsigned int crc;
-    read_byte = Buffer64ReadByte(&uart1_input_buffer);
+    read_byte = BufferByte64ReadByte(&uart1_input_buffer);
     if (read_byte == FEEDBACK_MSG) {
       // All of the sync bytes matched, this should be a valid command
-    A36717inputdata.top_fdbk_hi   = Buffer64ReadByte(&uart1_input_buffer);
-    A36717inputdata.top_fdbk_lo = Buffer64ReadByte(&uart1_input_buffer);
-    A36717inputdata.bias_fdbk_hi  = Buffer64ReadByte(&uart1_input_buffer);
-    A36717inputdata.bias_fdbk_lo  = Buffer64ReadByte(&uart1_input_buffer);
-    A36717inputdata.top1_mon   = Buffer64ReadByte(&uart1_input_buffer);
-    A36717inputdata.top2_mon = Buffer64ReadByte(&uart1_input_buffer);
-    A36717inputdata.heater_voltage_mon  = Buffer64ReadByte(&uart1_input_buffer);
-    A36717inputdata.heater1_current_mon  = Buffer64ReadByte(&uart1_input_buffer);
-    A36717inputdata.heater2_current_mon  = Buffer64ReadByte(&uart1_input_buffer);
-    A36717inputdata.status  = Buffer64ReadByte(&uart1_input_buffer);
-    crc = Buffer64ReadByte(&uart1_input_buffer);
+    A36717inputdata.top_fdbk_hi   = BufferByte64ReadByte(&uart1_input_buffer);
+    A36717inputdata.top_fdbk_lo = BufferByte64ReadByte(&uart1_input_buffer);
+    A36717inputdata.bias_fdbk_hi  = BufferByte64ReadByte(&uart1_input_buffer);
+    A36717inputdata.bias_fdbk_lo  = BufferByte64ReadByte(&uart1_input_buffer);
+    A36717inputdata.top1_mon   = BufferByte64ReadByte(&uart1_input_buffer);
+    A36717inputdata.top2_mon = BufferByte64ReadByte(&uart1_input_buffer);
+    A36717inputdata.heater_voltage_mon  = BufferByte64ReadByte(&uart1_input_buffer);
+    A36717inputdata.heater1_current_mon  = BufferByte64ReadByte(&uart1_input_buffer);
+    A36717inputdata.heater2_current_mon  = BufferByte64ReadByte(&uart1_input_buffer);
+    A36717inputdata.status  = BufferByte64ReadByte(&uart1_input_buffer);
+    crc = BufferByte64ReadByte(&uart1_input_buffer);
     crc = (crc << 8) & 0xFF00;
-    crc += Buffer64ReadByte(&uart1_input_buffer);
+    crc += BufferByte64ReadByte(&uart1_input_buffer);
     if (crc == 0x5555)
       A36717DownloadData();
     }
@@ -208,7 +207,7 @@ unsigned char CheckCRC(unsigned InputData* data) {
 void __attribute__((interrupt(__save__(CORCON,SR)),no_auto_psv)) UART_RX_INTERRUPT(void) {
   UART_RX_IF = 0;
   while (U1STAbits.URXDA) {
-    Buffer64WriteByte(&uart1_input_buffer, U1RXREG);
+    BufferByte64WriteByte(&uart1_input_buffer, U1RXREG);
   }
 }
 
@@ -216,8 +215,8 @@ void __attribute__((interrupt(__save__(CORCON,SR)),no_auto_psv)) UART_RX_INTERRU
 
 void __attribute__((interrupt(__save__(CORCON,SR)),no_auto_psv)) UART_TX_INTERRUPT(void) {
   UART_TX_IF = 0;
-  if ((!UART_STATS_BITS.UTXBF) && (Buffer64IsNotEmpty(&uart1_output_buffer) ))
+  if ((!UART_STATS_BITS.UTXBF) && (BufferByte64IsNotEmpty(&uart1_output_buffer) ))
     { //fill TX REG and then wait for interrupt to fill the rest.
-      U1TXREG =  Buffer64ReadByte(&uart1_output_buffer);
+      U1TXREG =  BufferByte64ReadByte(&uart1_output_buffer);
     }
 }
