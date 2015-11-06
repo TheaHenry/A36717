@@ -23,7 +23,7 @@
 
   SPI2   - Used/Configured by LTC265X Module
 
-  Timer3 - Used for 100us Transmits
+  Timer3 - Used to time 100us
 
   ADC Module - NOT USED
 
@@ -96,10 +96,6 @@
 #define PR3_VALUE_100_US               1000
 
 
-#define STATE_STARTUP   0x10
-#define STATE_READY     0x20
-#define STATE_FAULT     0x30
-
 
 // ------------ ADC CONFIGURATION ---------------- //
 // ADC is off, all pins are digital I/0
@@ -116,32 +112,12 @@
 
 typedef struct {
   unsigned int control_state;
-  unsigned int heater_set_voltage;
-  unsigned int heater_output_voltage; //needs to be an 8bit number
   unsigned int heater_enable;
-  unsigned int top_set_voltage;
-  unsigned int top_dac_setting_scaled;
-  unsigned int bias_set_voltage;
-  unsigned int bias_dac_setting_scaled;
-  unsigned int top1_voltage_monitor; //needs to be an 8bit number
-  unsigned int top2_voltage_monitor; //needs to be an 8bit number
-  unsigned int heater1_current_monitor; //needs to be an 8bit number
-  unsigned int heater2_current_monitor; //needs to be an 8bit number
-  unsigned int bias_feedback;
-  unsigned int top_feedback;
-  unsigned int top1_set_voltage; //needs to be an 8bit number
-  unsigned int top2_set_voltage; //needs to be an 8bit number
+  unsigned int counter_100us;
+  unsigned int counter_100us_high_side_loss;
   unsigned char status;
-
   unsigned int led_counter;
-
-
 } ControlData;
-
-extern ControlData global_data_A36717;
-extern BUFFERBYTE64 uart1_input_buffer;
-extern BUFFERBYTE64 uart1_output_buffer;
-
 
 
 
@@ -159,21 +135,59 @@ extern BUFFERBYTE64 uart1_output_buffer;
 #define A36717_U1STA_VALUE         (UART_INT_TX & UART_TX_PIN_NORMAL & UART_TX_ENABLE & UART_INT_RX_CHAR & UART_ADR_DETECT_DIS)
 #define A36717_U1BRG_VALUE         0 //(((FCY_CLK/UART1_BAUDRATE)/16)-1)
 
+/*
+  This is a non-linear integral-ish compensation scheme.
+  It is not stable and will never reach a steady state response but will osciallate around the target.
+  It should be adjusted so that the osciallations are small
+  
+  If the target reading is within the min/max window.
+  The dac_setting is adjusted by slow_step.
+
+  If the target reading is outsode the min/max window.
+  The dac_setting is adjusted by fast_step.
+  
+*/
 
 
 typedef struct {
-  //unsigned char command_byte;
-  unsigned char top_fdbk_hi;
-  unsigned char top_fdbk_lo;
-  unsigned char bias_fdbk_hi;
-  unsigned char bias_fdbk_lo;
-  unsigned char top1_mon;
-  unsigned char top2_mon;
-  unsigned char heater_voltage_mon;
-  unsigned char heater1_current_mon;
-  unsigned char heater2_current_mon;
-  unsigned char status;
-}InputData;
+  unsigned int dac_setting;
+  unsigned int max_dac_setting;
+  unsigned int min_dac_setting;
+  unsigned int reading;
+  unsigned int target;
+  unsigned int min_window;
+  unsigned int max_window;
+  unsigned int fast_step_more_power;
+  unsigned int slow_step_more_power;
+  unsigned int fast_step_less_power;
+  unsigned int slow_step_less_power;
+} TYPE_UC2827_CONTROL;
+
+
+
+#define STATE_STARTUP              0x10
+#define STATE_WAIT_FOR_CONFIG      0x20
+
+#define STATE_START_UP_FAULT       0x30
+#define STATE_PERMA_FAULT          0x32
+#define STATE_COLD_FAULT           0x35
+
+#define STATE_BIAS_SUPPLY_RAMP_UP  0x40
+#define STATE_HEATER_RAMP_UP       0x50
+#define STATE_TOP_SUPPLY_RAMP_UP   0x60
+#define STATE_TOP_RAMP_UP          0x70
+#define STATE_OPERATE              0x80
+#define STATE_WARM_FAULT           0x90
+
+
+#define _FAULT_CAN_COMM_LOSS                                    _FAULT_0
+#define _FAULT_BIAS_OVER_VOLTAGE_ABSOLUTE                       _FAULT_1
+#define _FAULT_BIAS_UNDER_VOLTAGE_ABSOLUTE                      _FAULT_2
+#define _FAULT_HIGH_SIDE_COMM_LOSS                              _FAULT_3
+#define _FAULT_TOP_1_OVER_VOLTAGE_ABSOLUTE                      _FAULT_4
+#define _FAULT_TOP_1_UNDER_VOLTAGE_ABSOLUTE                     _FAULT_5
+#define _FAULT_TOP_2_OVER_VOLTAGE_ABSOLUTE                      _FAULT_6
+#define _FAULT_TOP_2_UNDER_VOLTAGE_ABSOLUTE                     _FAULT_7
 
 
 #endif
