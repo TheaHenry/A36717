@@ -6,10 +6,9 @@
 
 /*modules that need to be developed:
  * Serial communicationi with LV section (Uart) - need to rewrite the recieve (how do we know start of messsage?), needs CRC
- *bootloader
 
 	Other open items:
-	* how do we want to respond to HTR faults - as of now, heater fault conditions will be chacked by LV section only.
+	* how do we want to respond to HTR faults - as of now, heater fault conditions will be checked by HV section only.
 	* how do we respond to xmit faults?
 	* CRC?
 	* watchdog?
@@ -29,8 +28,6 @@ _FSS(WR_PROT_SEC_OFF & NO_SEC_CODE & NO_SEC_EEPROM & NO_SEC_RAM);
 _FGS(CODE_PROT_OFF);
 _FICD(PGD);
 //------------------------------------------------------------------------//
-
-
 
 
 void DoStateMachine(void);
@@ -137,38 +134,47 @@ void DoA36717(void) {
     // This happens once every 100uS
     _T3IF = 0;
     
-    if (PIN_PIC_KICK == 1) { 
+    if (PIN_PIC_KICK == 1) 
+    { 
       //kick pic external watchdog every 200us ( times out if 5 consecutive kicks are missed) 
       PIN_PIC_KICK = 0;
-    } else {
+    } 
+    else 
+    {
       PIN_PIC_KICK = 1;
     }
 
     // --------------------- CHECK FOR CAN COMM LOSS -------------------- //
-    if (ETMCanSlaveGetComFaultStatus()) {
+    if (ETMCanSlaveGetComFaultStatus()) 
+    {
       _FAULT_CAN_COMM_LOSS = 1;
-    } else {
-      if (ETMCanSlaveGetSyncMsgResetEnable()) {
-	_FAULT_CAN_COMM_LOSS = 0;
+    }
+    else 
+    {
+      if (ETMCanSlaveGetSyncMsgResetEnable()) 
+      {
+	       _FAULT_CAN_COMM_LOSS = 0;
       }
     }
     
-
-#define HIGH_SIDE_TIMEOUT  10
     // -------------------- CHECK FOR HIGH SIDE CAN COMM LOSS --------- //
-    if (global_data_A36717.counter_100us_high_side_loss > HIGH_SIDE_TIMEOUT) {
+    #define HIGH_SIDE_TIMEOUT  10
+    
+    if (global_data_A36717.counter_100us_high_side_loss > HIGH_SIDE_TIMEOUT) 
+    {
       _FAULT_HIGH_SIDE_COMM_LOSS = 1;
-    } else {
-      if (ETMCanSlaveGetSyncMsgResetEnable()) {
-	_FAULT_HIGH_SIDE_COMM_LOSS = 0;
+    } 
+    else 
+    {
+      if (ETMCanSlaveGetSyncMsgResetEnable())
+      {
+	       _FAULT_HIGH_SIDE_COMM_LOSS = 0;
       }
     }
     global_data_A36717.counter_100us_high_side_loss++;
     
-
-
-
     global_data_A36717.counter_100us++;
+
     if (global_data_A36717.counter_100us >= 100) {
       // This is true every 10ms
       global_data_A36717.counter_100us = 0;
@@ -210,12 +216,15 @@ void DoA36717(void) {
     global_data_A36717.led_counter++;
     global_data_A36717.led_counter &= 0x7FFF;
     
-    if ((global_data_A36717.led_counter & 0x03FF) == 0) {
-      // this will be true every ~100mS
-      if(PIN_LED_OPERATIONAL_GREEN == 1) {
-	PIN_LED_OPERATIONAL_GREEN = 0;
-      } else {
-	PIN_LED_OPERATIONAL_GREEN = 1;
+    if ((global_data_A36717.led_counter & 0x03FF) == 0) // this will be true every ~100mS
+    {      
+      if(PIN_LED_OPERATIONAL_GREEN == 1) 
+      {
+	       PIN_LED_OPERATIONAL_GREEN = 0;
+      } 
+      else 
+      {
+	       PIN_LED_OPERATIONAL_GREEN = 1;
       } 
     }
   }
@@ -312,8 +321,8 @@ void InitializeA36717(void) {
   
   
   // Initialize the Can module
-  ETMCanSlaveInitialize(CAN_PORT_1, FCY_CLK, ETM_CAN_ADDR_GUN_DRIVER_BOARD, _PIN_RB6, 4);
-  ETMCanSlaveLoadConfiguration(36717, 0, AGILE_REV, FIRMWARE_AGILE_REV, FIRMWARE_BRANCH, FIRMWARE_BRANCH_REV, SERIAL_NUMBER);
+  ETMCanSlaveInitialize(CAN_PORT_1, FCY_CLK, ETM_CAN_ADDR_GUN_DRIVER_BOARD, _PIN_RB6, 4, _PIN_NOT_CONNECTED, _PIN_NOT_CONNECTED);
+  ETMCanSlaveLoadConfiguration(36717, 0, FIRMWARE_AGILE_REV, FIRMWARE_BRANCH, FIRMWARE_BRANCH_REV);
 
 #define TOP_RAW_VMON_SCALE_FACTOR        0x8000
 #define HEATER_VMON_SCALE_FACTOR         0x8000
@@ -592,7 +601,7 @@ void A36717ReceiveData(void) {
   // Look for a command
   while ( (BufferByte64BytesInBuffer(&uart1_input_buffer)) >= COMMAND_LENGTH) {
     read_byte = BufferByte64ReadByte(&uart1_input_buffer);
-    if (read_byte == FEEDBACK_MSG) {
+    if ((read_byte <= 0xF5) && (read_byte >= 0xF0)) {
       // All of the sync bytes matched, this should be a valid command
       message_data[0] = read_byte;
       message_data[1] = BufferByte64ReadByte(&uart1_input_buffer);
