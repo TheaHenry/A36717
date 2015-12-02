@@ -91,7 +91,7 @@ void DoStateMachine(void) {
   case STATE_OPERATE:
     PIN_BIAS_ENABLE = !ENABLE_SUPPLY;
     PIN_TOP_ENABLE  = !ENABLE_SUPPLY;
-    WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, 0x1F00);
+    WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, 0x1C00);
     WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_A, 0x1F00);
     while(global_data_A36717.control_state == STATE_OPERATE) {
       DoA36717();
@@ -158,7 +158,7 @@ void DoA36717(void) {
     }
     
     // -------------------- CHECK FOR HIGH SIDE CAN COMM LOSS --------- //
-    #define HIGH_SIDE_TIMEOUT  10
+    #define HIGH_SIDE_TIMEOUT  100000// 10sec
     
     if (global_data_A36717.counter_100us_high_side_loss > HIGH_SIDE_TIMEOUT) 
     {
@@ -175,24 +175,24 @@ void DoA36717(void) {
     
     global_data_A36717.counter_100us++;
 
-    if (global_data_A36717.counter_100us >= 100) {
-      // This is true every 10ms
+    if (global_data_A36717.counter_100us >= 1000) {
+      // This is true every 100ms
       global_data_A36717.counter_100us = 0;
       A36717TransmitData();
       
       slave_board_data.log_data[0] = 6500;  // BIAS_SET_POINT
-      slave_board_data.log_data[1] = 500;   // top_1_raw_vmon.reading_scaled_and_calibrated;
-      slave_board_data.log_data[2] = 12750; // top_1_vmon.reading_scaled_and_calibrated;
+      slave_board_data.log_data[1] =  top_1_raw_vmon.reading_scaled_and_calibrated;
+      slave_board_data.log_data[2] =  top_1_vmon.reading_scaled_and_calibrated;
       slave_board_data.log_data[3] = top_1_set_point;
       
-      slave_board_data.log_data[4] = 6600;  // bias_vmon.reading_scaled_and_calibrated;
-      slave_board_data.log_data[5] = 550;   // top_2_raw_vmon.reading_scaled_and_calibrated;
-      slave_board_data.log_data[6] = 13000; // top_2_vmon.reading_scaled_and_calibrated;
+      slave_board_data.log_data[4] =  bias_vmon.reading_scaled_and_calibrated;
+      slave_board_data.log_data[5] =  top_2_raw_vmon.reading_scaled_and_calibrated;
+      slave_board_data.log_data[6] =  top_2_vmon.reading_scaled_and_calibrated;
       slave_board_data.log_data[7] = top_2_set_point;
       
-      slave_board_data.log_data[8] = 1000;  // heater_1_imon.reading_scaled_and_calibrated;
-      slave_board_data.log_data[9] = 1200;  // heater_2_imon.reading_scaled_and_calibrated;
-      slave_board_data.log_data[10] = 13000; // heater_vmon.reading_scaled_and_calibrated
+      slave_board_data.log_data[8] =  heater_1_imon.reading_scaled_and_calibrated;
+      slave_board_data.log_data[9] =  heater_2_imon.reading_scaled_and_calibrated;
+      slave_board_data.log_data[10] =  heater_vmon.reading_scaled_and_calibrated;
       slave_board_data.log_data[11] = heater_set_point;
       
       ETMCanSlaveSetDebugRegister(0x0, 0);
@@ -324,17 +324,17 @@ void InitializeA36717(void) {
   ETMCanSlaveInitialize(CAN_PORT_1, FCY_CLK, ETM_CAN_ADDR_GUN_DRIVER_BOARD, _PIN_RB6, 4, _PIN_NOT_CONNECTED, _PIN_NOT_CONNECTED);
   ETMCanSlaveLoadConfiguration(36717, 0, FIRMWARE_AGILE_REV, FIRMWARE_BRANCH, FIRMWARE_BRANCH_REV);
 
-#define TOP_RAW_VMON_SCALE_FACTOR        0x8000
-#define HEATER_VMON_SCALE_FACTOR         0x8000
-#define HEATER_IMON_SCALE_FACTOR         0x8000
+#define TOP_RAW_VMON_SCALE_FACTOR        1
+#define HEATER_VMON_SCALE_FACTOR         1
+#define HEATER_IMON_SCALE_FACTOR         1
 
-#define TOP_VMON_SCALE_FACTOR            0x8000
+#define TOP_VMON_SCALE_FACTOR            1
 #define TOP_OVER_TRIP_POINT_ABSOLUTE     17000 // 170 Volts
 #define TOP_UNDER_TRIP_POINT_ABSOLUTE    10000 // 100 Volts
 #define TOP_ABSOLUTE_TRIP_COUNTER        0
 
 
-#define BIAS_VMON_SCALE_FACTOR           0x8000
+#define BIAS_VMON_SCALE_FACTOR           1
 #define BIAS_OVER_TRIP_POINT_ABSOLUTE    7000 // 700 Volts
 #define BIAS_UNDER_TRIP_POINT_ABSOLUTE   6000 // 600 Volts
 #define BIAS_ABSOLUTE_TRIP_COUNTER       0 
@@ -566,7 +566,7 @@ void CheckAnalogFaults(void) {
 
 void A36717TransmitData(void) {
   unsigned int crc = 0x5555;
-  BufferByte64WriteByte(&uart1_output_buffer, 0xFF); // Sync
+  BufferByte64WriteByte(&uart1_output_buffer, 0xF0); // Sync
   BufferByte64WriteByte(&uart1_output_buffer, 0x00); // Status
   BufferByte64WriteByte(&uart1_output_buffer, top_1_set_point >> 8);      // Top 1 Set High Byte
   BufferByte64WriteByte(&uart1_output_buffer, top_1_set_point & 0x00FF);  // Top 1 Set High Byte

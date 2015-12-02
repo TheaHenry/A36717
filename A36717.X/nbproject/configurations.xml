@@ -32,15 +32,15 @@
         <targetPluginBoard></targetPluginBoard>
         <platformTool>ICD3PlatformTool</platformTool>
         <languageToolchain>XC16</languageToolchain>
-        <languageToolchainVersion>1.23</languageToolchainVersion>
+        <languageToolchainVersion>1.24</languageToolchainVersion>
         <platform>3</platform>
       </toolsSet>
       <compileType>
         <linkerTool>
           <linkerLibItems>
-            <linkerLibFileItem>../../ETM_LIBRARY/Version_01/lib/ETM_LINAC_CAN.a</linkerLibFileItem>
-            <linkerLibFileItem>../../ETM_LIBRARY/Version_01/lib/ETM_EEPROM_INTERNAL.a</linkerLibFileItem>
-            <linkerLibFileItem>../../ETM_LIBRARY/Version_01/lib/ETM_CORE.a</linkerLibFileItem>
+            <linkerLibFileItem>../../91-36994/Version_01/lib/ETM_CORE.a</linkerLibFileItem>
+            <linkerLibFileItem>../../91-36994/Version_01/lib/ETM_EEPROM_INTERNAL.a</linkerLibFileItem>
+            <linkerLibFileItem>../../91-36994/Version_01/lib/ETM_LINAC_CAN.a</linkerLibFileItem>
           </linkerLibItems>
         </linkerTool>
         <archiverTool>
@@ -64,7 +64,6 @@
         <property key="code-model" value="default"/>
         <property key="const-model" value="default"/>
         <property key="data-model" value="default"/>
-        <property key="disable-instruction-scheduling" value="false"/>
         <property key="enable-all-warnings" value="true"/>
         <property key="enable-ansi-std" value="false"/>
         <property key="enable-ansi-warnings" value="false"/>
@@ -169,7 +168,7 @@
       </C30-LD>
       <C30Global>
         <property key="common-include-directories"
-                  value="..\..\ETM_LIBRARY\Version_01\inc"/>
+                  value="..\..\91-36994\Version_01\inc"/>
         <property key="dual-boot-partition" value="0"/>
         <property key="fast-math" value="false"/>
         <property key="generic-16-bit" value="false"/>
@@ -214,7 +213,6 @@
         <property key="UART 1" value="true"/>
         <property key="UART 2" value="true"/>
         <property key="debugoptions.useswbreakpoints" value="false"/>
-        <property key="firmware.download.all" value="false"/>
         <property key="hwtoolclock.frcindebug" value="false"/>
         <property key="memories.aux" value="false"/>
         <property key="memories.bootflash" value="false"/>
