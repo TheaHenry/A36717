@@ -89,9 +89,9 @@ void DoStateMachine(void) {
 
 
   case STATE_OPERATE:
-    PIN_BIAS_ENABLE = !ENABLE_SUPPLY;
+    PIN_BIAS_ENABLE = ENABLE_SUPPLY;
     PIN_TOP_ENABLE  = !ENABLE_SUPPLY;
-    WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, 0x1C00);
+    WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, 0x0C00);// bias ref
     WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_A, 0x1F00);
     while(global_data_A36717.control_state == STATE_OPERATE) {
       DoA36717();
@@ -114,6 +114,7 @@ void DoStateMachine(void) {
 
 void DoA36717(void) {
   A36717ReceiveData();
+  bias_supply.reading = bias_vmon.reading_scaled_and_calibrated;
   ETMCanSlaveDoCan();
   
 
@@ -158,7 +159,7 @@ void DoA36717(void) {
     }
     
     // -------------------- CHECK FOR HIGH SIDE CAN COMM LOSS --------- //
-    #define HIGH_SIDE_TIMEOUT  100000// 10sec
+    #define HIGH_SIDE_TIMEOUT  50// 5msec
     
     if (global_data_A36717.counter_100us_high_side_loss > HIGH_SIDE_TIMEOUT) 
     {
@@ -175,12 +176,12 @@ void DoA36717(void) {
     
     global_data_A36717.counter_100us++;
 
-    if (global_data_A36717.counter_100us >= 1000) {
-      // This is true every 100ms
+    if (global_data_A36717.counter_100us >= 10) {
+      // This is true every 1ms
       global_data_A36717.counter_100us = 0;
       A36717TransmitData();
       
-      slave_board_data.log_data[0] = 6500;  // BIAS_SET_POINT
+      slave_board_data.log_data[0] = bias_supply.target;
       slave_board_data.log_data[1] =  top_1_raw_vmon.reading_scaled_and_calibrated;
       slave_board_data.log_data[2] =  top_1_vmon.reading_scaled_and_calibrated;
       slave_board_data.log_data[3] = top_1_set_point;
@@ -195,9 +196,9 @@ void DoA36717(void) {
       slave_board_data.log_data[10] =  heater_vmon.reading_scaled_and_calibrated;
       slave_board_data.log_data[11] = heater_set_point;
       
-      ETMCanSlaveSetDebugRegister(0x0, 0);
-      ETMCanSlaveSetDebugRegister(0x1, 11);
-      ETMCanSlaveSetDebugRegister(0x2, 22);
+      ETMCanSlaveSetDebugRegister(0x0, bias_supply.target);
+      ETMCanSlaveSetDebugRegister(0x1, bias_supply.reading);
+      ETMCanSlaveSetDebugRegister(0x2, bias_supply.dac_setting);
       ETMCanSlaveSetDebugRegister(0x3, 33);
       ETMCanSlaveSetDebugRegister(0x4, 44);
       ETMCanSlaveSetDebugRegister(0x5, 55);
@@ -251,14 +252,13 @@ void InitializeA36717(void) {
   PIN_LED_TEST_POINT_A = 0;
   
 
-#define PS_MAX_DAC_OUTPUT       0x3000
-#define PS_MIN_DAC_OUTPUT       0x1000
-#define DAC_FAST_STEP           0x0080
-#define DAC_SLOW_STEP           0x0008
+#define PS_MAX_DAC_OUTPUT       0x2200
+#define PS_MIN_DAC_OUTPUT       0x1A00
+#define DAC_FAST_STEP           0x0004
+#define DAC_SLOW_STEP           0x0001
 
-#define BIAS_TARGET             6500   // 650V
-#define BIAS_WINDOW              500   // 50V
-
+#define BIAS_TARGET             20000   // 200V
+#define BIAS_WINDOW              5000   // 30V
 
 #define TOP_TARGET              1000   // 10V
 #define TOP_WINDOW               500   // 5V
@@ -329,14 +329,14 @@ void InitializeA36717(void) {
 #define HEATER_IMON_SCALE_FACTOR         1
 
 #define TOP_VMON_SCALE_FACTOR            1
-#define TOP_OVER_TRIP_POINT_ABSOLUTE     17000 // 170 Volts
+#define TOP_OVER_TRIP_POINT_ABSOLUTE     20000 // 200 Volts
 #define TOP_UNDER_TRIP_POINT_ABSOLUTE    10000 // 100 Volts
 #define TOP_ABSOLUTE_TRIP_COUNTER        0
 
 
 #define BIAS_VMON_SCALE_FACTOR           1
-#define BIAS_OVER_TRIP_POINT_ABSOLUTE    7000 // 700 Volts
-#define BIAS_UNDER_TRIP_POINT_ABSOLUTE   6000 // 600 Volts
+#define BIAS_OVER_TRIP_POINT_ABSOLUTE    5000 // 500 Volts
+#define BIAS_UNDER_TRIP_POINT_ABSOLUTE   2500 // 250 Volts
 #define BIAS_ABSOLUTE_TRIP_COUNTER       0 
 
   // Initialize the analog input module
@@ -566,7 +566,7 @@ void CheckAnalogFaults(void) {
 
 void A36717TransmitData(void) {
   unsigned int crc = 0x5555;
-  BufferByte64WriteByte(&uart1_output_buffer, 0xF0); // Sync
+  BufferByte64WriteByte(&uart1_output_buffer, 0xFF); // Sync
   BufferByte64WriteByte(&uart1_output_buffer, 0x00); // Status
   BufferByte64WriteByte(&uart1_output_buffer, top_1_set_point >> 8);      // Top 1 Set High Byte
   BufferByte64WriteByte(&uart1_output_buffer, top_1_set_point & 0x00FF);  // Top 1 Set High Byte
