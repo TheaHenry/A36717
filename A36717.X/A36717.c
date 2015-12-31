@@ -89,9 +89,9 @@ void DoStateMachine(void) {
 
 
   case STATE_OPERATE:
-    PIN_BIAS_ENABLE = ENABLE_SUPPLY;
+    PIN_BIAS_ENABLE = !ENABLE_SUPPLY;
     PIN_TOP_ENABLE  = !ENABLE_SUPPLY;
-    WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, 0x0C00);// bias ref
+    WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, 0x1C00);// bias ref
     WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_A, 0x1F00);
     while(global_data_A36717.control_state == STATE_OPERATE) {
       DoA36717();
@@ -126,6 +126,8 @@ void DoA36717(void) {
     DoControlLoop(&top_supply);
     WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_A, top_supply.dac_setting);
     WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, bias_supply.dac_setting);
+    
+    WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_D, bias_supply.reading<<4);
 
     CheckAnalogFaults();
 
@@ -179,6 +181,15 @@ void DoA36717(void) {
     if (global_data_A36717.counter_100us >= 10) {
       // This is true every 1ms
       global_data_A36717.counter_100us = 0;
+      if (ETMCanSlaveGetSyncMsgResetEnable()) //update the status clear bit.
+      {
+        global_data_A36717.status |= 0x80;
+      }
+      else
+      {
+        global_data_A36717.status &= 0x7F;  
+      }
+
       A36717TransmitData();
       
       slave_board_data.log_data[0] = bias_supply.target;
@@ -252,13 +263,13 @@ void InitializeA36717(void) {
   PIN_LED_TEST_POINT_A = 0;
   
 
-#define PS_MAX_DAC_OUTPUT       0x2200
+#define PS_MAX_DAC_OUTPUT       0x2700
 #define PS_MIN_DAC_OUTPUT       0x1A00
-#define DAC_FAST_STEP           0x0004
-#define DAC_SLOW_STEP           0x0001
+#define DAC_FAST_STEP           0x000F
+#define DAC_SLOW_STEP           0x0004
 
-#define BIAS_TARGET             20000   // 200V
-#define BIAS_WINDOW              5000   // 30V
+#define BIAS_TARGET             10000   // 100V
+#define BIAS_WINDOW              4000   // 40V
 
 #define TOP_TARGET              1000   // 10V
 #define TOP_WINDOW               500   // 5V
@@ -274,6 +285,7 @@ void InitializeA36717(void) {
   bias_supply.slow_step_more_power = DAC_SLOW_STEP;
   bias_supply.fast_step_less_power = DAC_FAST_STEP;
   bias_supply.slow_step_more_power = DAC_SLOW_STEP;
+
   
 
   // Set up the control loops
@@ -289,8 +301,9 @@ void InitializeA36717(void) {
   top_supply.slow_step_more_power = DAC_SLOW_STEP;
 
 
-  global_data_A36717.status = 1;
-  
+
+  global_data_A36717.status = 0x10;
+
 
   //set tris
   TRISA = A36717_TRISA_VALUE;
@@ -452,38 +465,64 @@ void DoControlLoop(TYPE_UC2827_CONTROL* ptr) {
 
 
   // First check for over voltage conditions.  If voltage is too high reduce the drive voltage
-  if (ptr->reading > ptr->max_window) {
+  if (ptr->reading > ptr->max_window)
+  {
     // The voltage is very high reduce the drive voltage quickly
-    if (ptr->fast_step_less_power < ptr->dac_setting) {
+    
+    if (ptr->fast_step_less_power < ptr->dac_setting) 
+    {
+
       ptr->dac_setting -= ptr->fast_step_less_power;
-    } else {
+    } 
+    else 
+    {
       ptr->dac_setting = 0;
     }
-    if (ptr->dac_setting < ptr->min_dac_setting) {
+    if (ptr->dac_setting < ptr->min_dac_setting) 
+    {
       ptr->dac_setting = ptr->min_dac_setting;
     }
-  } else if (ptr->reading > ptr->target) {
+    
+  } 
+  else if (ptr->reading > ptr->target) {
+    
     // The voltage is greater than target - reduce drive voltage slowly
-    if (ptr->slow_step_less_power < ptr->dac_setting) {
-      ptr->dac_setting -= ptr->slow_step_less_power;
-    } else {
-      ptr->dac_setting = 0;
-    }
-    if (ptr->dac_setting < ptr->min_dac_setting) {
-      ptr->dac_setting = ptr->min_dac_setting;
-    }
-  } else if (ptr->reading < ptr->min_window) {
+      if (ptr->slow_step_less_power < ptr->dac_setting) 
+      {
+        ptr->dac_setting -= ptr->slow_step_less_power;
+      } 
+      else 
+      {
+        ptr->dac_setting = 0;
+      }
+      if (ptr->dac_setting < ptr->min_dac_setting) {
+        ptr->dac_setting = ptr->min_dac_setting;
+      }
+    
+  
+    
+  }
+
+  else if (ptr->reading < ptr->min_window) 
+  {
     // The voltage is very low - increase the drive voltage quickly
-    if ((0xFFFF - ptr->fast_step_more_power) > ptr->dac_setting) {
+    
+    if ((0xFFFF - ptr->fast_step_more_power) > ptr->dac_setting) 
+    {
       ptr->dac_setting += ptr->fast_step_more_power;
-    } else {
+    } 
+    else 
+    {
       ptr->dac_setting = 0xFFFF;
     }
     if (ptr->dac_setting > ptr->max_dac_setting) {
       ptr->dac_setting = ptr->max_dac_setting;
     }
-  } else if (ptr->reading < ptr->min_window) {
+  } 
+  
+  else if (ptr->reading < ptr->target) {
     // The voltage is less than target - increase the drive voltage slowly
+    
     if ((0xFFFF - ptr->slow_step_more_power) > ptr->dac_setting) {
       ptr->dac_setting += ptr->slow_step_more_power;
     } else {
@@ -556,8 +595,51 @@ void CheckAnalogFaults(void) {
     }
   }
 
+// ------------------------ HEATER FAULTS ------------------------ //
+if (global_data_A36717.status & 0x01)
+{
+  _FAULT_HEATER_OVER_VOLTAGE_ABSOLUTE = 1;
+}
+else
+{
+  _FAULT_HEATER_OVER_VOLTAGE_ABSOLUTE = 0;
+}
 
+if (global_data_A36717.status & 0x02)
+{
+  _FAULT_HEATER_UNDER_VOLTAGE_ABSOLUTE = 1;
+}
+else
+{
+  _FAULT_HEATER_UNDER_VOLTAGE_ABSOLUTE = 0;
+}
 
+if (global_data_A36717.status & 0x04)
+{
+  _FAULT_HEATER_OVER_CURRENT_ABSOLUTE  = 1;
+}
+else
+{
+  _FAULT_HEATER_OVER_CURRENT_ABSOLUTE = 0;
+}
+
+if (global_data_A36717.status & 0x08)
+{
+  _FAULT_HEATER_UNDER_CURRENT_ABSOLUTE = 1;
+}
+else
+{
+  _FAULT_HEATER_UNDER_CURRENT_ABSOLUTE = 0;
+}
+
+if (global_data_A36717.status & 0x10)
+{
+  _FAULT_HEATER_NOT_READY = 1;
+}
+else
+{
+  _FAULT_HEATER_NOT_READY = 0;
+}
 
   
 }
@@ -567,20 +649,13 @@ void CheckAnalogFaults(void) {
 void A36717TransmitData(void) {
   unsigned int crc = 0x5555;
   BufferByte64WriteByte(&uart1_output_buffer, 0xFF); // Sync
-  BufferByte64WriteByte(&uart1_output_buffer, 0x00); // Status
+  BufferByte64WriteByte(&uart1_output_buffer, global_data_A36717.status); // Status
   BufferByte64WriteByte(&uart1_output_buffer, top_1_set_point >> 8);      // Top 1 Set High Byte
   BufferByte64WriteByte(&uart1_output_buffer, top_1_set_point & 0x00FF);  // Top 1 Set High Byte
   BufferByte64WriteByte(&uart1_output_buffer, top_2_set_point >> 8);      // Top 2 Set High Byte
   BufferByte64WriteByte(&uart1_output_buffer, top_2_set_point & 0x00FF);  // Top 2 Set High Byte
   BufferByte64WriteByte(&uart1_output_buffer, heater_set_point >> 8);     // Heater Set High Byte
   BufferByte64WriteByte(&uart1_output_buffer, heater_set_point & 0x00FF); // Heater Set High Byte
-  if (global_data_A36717.heater_enable) {
-    BufferByte64WriteByte(&uart1_output_buffer, 0xFF); // Heater On
-    BufferByte64WriteByte(&uart1_output_buffer, 0xFF); // Heater On
-  } else {
-    BufferByte64WriteByte(&uart1_output_buffer, 0x00); // Heater Off
-    BufferByte64WriteByte(&uart1_output_buffer, 0x00); // Heater Off
-  }
   BufferByte64WriteByte(&uart1_output_buffer, (crc >> 8));
   BufferByte64WriteByte(&uart1_output_buffer, (crc & 0xFF));
  
@@ -634,6 +709,8 @@ void A36717ReceiveData(void) {
 
 void A36717DownloadData(unsigned char *msg_data) {
   unsigned int temp;
+
+  global_data_A36717.status = msg_data[1];
 
   temp = msg_data[2];
   temp <<= 8;

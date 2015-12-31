@@ -75,10 +75,10 @@
 
 #define A36717_TRISA_VALUE 0b1111111111111111
 #define A36717_TRISB_VALUE 0b0101110010111011
-#define A36717_TRISC_VALUE 0b1111111111111111
+#define A36717_TRISC_VALUE 0b1111111111111101
 #define A36717_TRISD_VALUE 0b1000101011111111
 #define A36717_TRISF_VALUE 0b1111111111101111
-#define A36717_TRISG_VALUE 0b1111111111111111
+#define A36717_TRISG_VALUE 0b0111111111111111
 
 
 
@@ -112,7 +112,6 @@
 
 typedef struct {
   unsigned int control_state;
-  unsigned int heater_enable;
   unsigned int counter_100us;
   unsigned int counter_100us_high_side_loss;
   unsigned char status;
@@ -127,8 +126,7 @@ typedef struct {
 
 #define COMMAND_BUFFER_EMPTY  0x00
 #define COMMAND_BUFFER_FULL   0x02
-#define FEEDBACK_MSG  0xF1 
-#define SETTINGS_MSG  0xF2
+
 
 #define UART1_BAUDRATE             312500//19200// 460800//625000
 #define A36717_U1MODE_VALUE        (UART_EN & UART_IDLE_STOP & UART_DIS_WAKE & UART_DIS_LOOPBACK & UART_DIS_ABAUD & UART_NO_PAR_8BIT & UART_1STOPBIT)
@@ -188,6 +186,10 @@ typedef struct {
 #define _FAULT_TOP_1_UNDER_VOLTAGE_ABSOLUTE                     _FAULT_5
 #define _FAULT_TOP_2_OVER_VOLTAGE_ABSOLUTE                      _FAULT_6
 #define _FAULT_TOP_2_UNDER_VOLTAGE_ABSOLUTE                     _FAULT_7
-
+#define _FAULT_HEATER_OVER_VOLTAGE_ABSOLUTE                     _FAULT_8
+#define _FAULT_HEATER_UNDER_VOLTAGE_ABSOLUTE                    _FAULT_9
+#define _FAULT_HEATER_OVER_CURRENT_ABSOLUTE                     _FAULT_A
+#define _FAULT_HEATER_UNDER_CURRENT_ABSOLUTE                    _FAULT_B
+#define _FAULT_HEATER_NOT_READY                                 _FAULT_C
 
 #endif
