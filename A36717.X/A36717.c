@@ -89,10 +89,10 @@ void DoStateMachine(void) {
 
 
   case STATE_OPERATE:
-    PIN_BIAS_ENABLE = !ENABLE_SUPPLY;
-    PIN_TOP_ENABLE  = !ENABLE_SUPPLY;
-    WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, 0x1C00);// bias ref
-    WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_A, 0x1F00);
+    PIN_BIAS_ENABLE = ENABLE_SUPPLY;
+    PIN_TOP_ENABLE  = ENABLE_SUPPLY;
+    WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, 0x3000);// bias ref
+    WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_A, 0x1A00);
     while(global_data_A36717.control_state == STATE_OPERATE) {
       DoA36717();
     }
@@ -115,6 +115,14 @@ void DoStateMachine(void) {
 void DoA36717(void) {
   A36717ReceiveData();
   bias_supply.reading = bias_vmon.reading_scaled_and_calibrated;
+  if (top_1_raw_vmon.reading_scaled_and_calibrated>= top_2_raw_vmon.reading_scaled_and_calibrated)
+  {
+    top_supply.reading = top_2_raw_vmon.reading_scaled_and_calibrated;
+  }
+  else
+  {
+    top_supply.reading = top_1_raw_vmon.reading_scaled_and_calibrated;
+  }
   ETMCanSlaveDoCan();
   
 
@@ -127,7 +135,7 @@ void DoA36717(void) {
     WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_A, top_supply.dac_setting);
     WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, bias_supply.dac_setting);
     
-    WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_D, bias_supply.reading<<4);
+//    WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_D, bias_supply.reading<<4);
 
     CheckAnalogFaults();
 
@@ -263,21 +271,21 @@ void InitializeA36717(void) {
   PIN_LED_TEST_POINT_A = 0;
   
 
-#define PS_MAX_DAC_OUTPUT       0x2700
+#define PS_MAX_DAC_OUTPUT       0x5000
 #define PS_MIN_DAC_OUTPUT       0x1A00
-#define DAC_FAST_STEP           0x000F
-#define DAC_SLOW_STEP           0x0004
+#define DAC_FAST_STEP           0x0006
+#define DAC_SLOW_STEP           0x0001
 
-#define BIAS_TARGET             10000   // 100V
-#define BIAS_WINDOW              4000   // 40V
+#define BIAS_TARGET             40000   // 400V
+#define BIAS_WINDOW              6000   // 60V
 
-#define TOP_TARGET              1000   // 10V
-#define TOP_WINDOW               500   // 5V
+#define TOP_TARGET              2000   // 20V
+#define TOP_WINDOW              1000   // 10V
 
   // Set up the control loops
   bias_supply.max_dac_setting = PS_MAX_DAC_OUTPUT;
   bias_supply.min_dac_setting = PS_MIN_DAC_OUTPUT;
-  bias_supply.dac_setting = bias_supply.min_dac_setting;
+  bias_supply.dac_setting = 0x3000;
   bias_supply.target = BIAS_TARGET;
   bias_supply.min_window = BIAS_TARGET - BIAS_WINDOW;
   bias_supply.max_window = BIAS_TARGET + BIAS_WINDOW;
@@ -348,8 +356,8 @@ void InitializeA36717(void) {
 
 
 #define BIAS_VMON_SCALE_FACTOR           1
-#define BIAS_OVER_TRIP_POINT_ABSOLUTE    5000 // 500 Volts
-#define BIAS_UNDER_TRIP_POINT_ABSOLUTE   2500 // 250 Volts
+#define BIAS_OVER_TRIP_POINT_ABSOLUTE    50000 // 500 Volts
+#define BIAS_UNDER_TRIP_POINT_ABSOLUTE   25000 // 250 Volts
 #define BIAS_ABSOLUTE_TRIP_COUNTER       0 
 
   // Initialize the analog input module
