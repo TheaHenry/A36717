@@ -58,6 +58,10 @@ AnalogInput heater_vmon;
 AnalogInput heater_1_imon;
 AnalogInput heater_2_imon;
 
+AnalogOutput top_1_set;
+AnalogOutput top_2_set;
+
+
 unsigned int do_control;
 
 TYPE_UC2827_CONTROL bias_supply;
@@ -203,12 +207,12 @@ void DoA36717(void) {
       slave_board_data.log_data[0] = bias_supply.target;
       slave_board_data.log_data[1] =  top_1_raw_vmon.reading_scaled_and_calibrated;
       slave_board_data.log_data[2] =  top_1_vmon.reading_scaled_and_calibrated;
-      slave_board_data.log_data[3] = top_1_set_point;
+      slave_board_data.log_data[3] = top_1_set.set_point;
       
       slave_board_data.log_data[4] =  bias_vmon.reading_scaled_and_calibrated;
       slave_board_data.log_data[5] =  top_2_raw_vmon.reading_scaled_and_calibrated;
       slave_board_data.log_data[6] =  top_2_vmon.reading_scaled_and_calibrated;
-      slave_board_data.log_data[7] = top_2_set_point;
+      slave_board_data.log_data[7] = top_2_set.set_point;
       
       slave_board_data.log_data[8] =  heater_1_imon.reading_scaled_and_calibrated;
       slave_board_data.log_data[9] =  heater_2_imon.reading_scaled_and_calibrated;
@@ -273,14 +277,14 @@ void InitializeA36717(void) {
 
 #define PS_MAX_DAC_OUTPUT       0x5000
 #define PS_MIN_DAC_OUTPUT       0x1A00
-#define DAC_FAST_STEP           0x0006
+#define DAC_FAST_STEP           0x0004
 #define DAC_SLOW_STEP           0x0001
 
 #define BIAS_TARGET             40000   // 400V
 #define BIAS_WINDOW              6000   // 60V
 
-#define TOP_TARGET              2000   // 20V
-#define TOP_WINDOW              1000   // 10V
+#define TOP_TARGET              3000   // 30V
+#define TOP_WINDOW              1500   // 15V
 
   // Set up the control loops
   bias_supply.max_dac_setting = PS_MAX_DAC_OUTPUT;
@@ -345,12 +349,13 @@ void InitializeA36717(void) {
   ETMCanSlaveInitialize(CAN_PORT_1, FCY_CLK, ETM_CAN_ADDR_GUN_DRIVER_BOARD, _PIN_RB6, 4, _PIN_NOT_CONNECTED, _PIN_NOT_CONNECTED);
   ETMCanSlaveLoadConfiguration(36717, 0, FIRMWARE_AGILE_REV, FIRMWARE_BRANCH, FIRMWARE_BRANCH_REV);
 
-#define TOP_RAW_VMON_SCALE_FACTOR        1
+#define TOP_RAW_VMON_SCALE_FACTOR        0.08247
+#define TOP_RAW_VMON_OFFSET              -3792
 #define HEATER_VMON_SCALE_FACTOR         1
 #define HEATER_IMON_SCALE_FACTOR         1
 
-#define TOP_VMON_SCALE_FACTOR            1
-#define TOP_OVER_TRIP_POINT_ABSOLUTE     20000 // 200 Volts
+#define TOP_VMON_SCALE_FACTOR            0.50354 //based on 1V per 100V sensed * ADC conversion (1024/3.3) * accumulation of 64 samples.
+#define TOP_OVER_TRIP_POINT_ABSOLUTE     25000 // 250 Volts
 #define TOP_UNDER_TRIP_POINT_ABSOLUTE    10000 // 100 Volts
 #define TOP_ABSOLUTE_TRIP_COUNTER        0
 
@@ -359,6 +364,10 @@ void InitializeA36717(void) {
 #define BIAS_OVER_TRIP_POINT_ABSOLUTE    50000 // 500 Volts
 #define BIAS_UNDER_TRIP_POINT_ABSOLUTE   25000 // 250 Volts
 #define BIAS_ABSOLUTE_TRIP_COUNTER       0 
+
+#define TOP_MIN_SET_POINT                10000  //100V
+#define TOP_MAX_SET_POINT                25000  //250V
+#define TOP_SET_SCALE_FACTOR             1.6
 
   // Initialize the analog input module
   
@@ -461,6 +470,25 @@ void InitializeA36717(void) {
 			   NO_RELATIVE_COUNTER,
 			   NO_ABSOLUTE_COUNTER
 			   );
+
+  ETMAnalogInitializeOutput(&top_1_set,
+             MACRO_DEC_TO_SCALE_FACTOR_16(TOP_SET_SCALE_FACTOR),
+             OFFSET_ZERO,
+             ANALOG_OUTPUT_0,
+             TOP_MAX_SET_POINT,
+             TOP_MIN_SET_POINT,
+             0);
+
+  ETMAnalogInitializeOutput(&top_2_set,
+             MACRO_DEC_TO_SCALE_FACTOR_16(TOP_SET_SCALE_FACTOR),
+             OFFSET_ZERO,
+             ANALOG_OUTPUT_1,
+             TOP_MAX_SET_POINT,
+             TOP_MIN_SET_POINT,
+             0);
+
+  top_1_set.enabled = 0xFF;
+  top_2_set.enabled = 0xFF;
 
 }
 
@@ -658,10 +686,10 @@ void A36717TransmitData(void) {
   unsigned int crc = 0x5555;
   BufferByte64WriteByte(&uart1_output_buffer, 0xFF); // Sync
   BufferByte64WriteByte(&uart1_output_buffer, global_data_A36717.status); // Status
-  BufferByte64WriteByte(&uart1_output_buffer, top_1_set_point >> 8);      // Top 1 Set High Byte
-  BufferByte64WriteByte(&uart1_output_buffer, top_1_set_point & 0x00FF);  // Top 1 Set High Byte
-  BufferByte64WriteByte(&uart1_output_buffer, top_2_set_point >> 8);      // Top 2 Set High Byte
-  BufferByte64WriteByte(&uart1_output_buffer, top_2_set_point & 0x00FF);  // Top 2 Set High Byte
+  BufferByte64WriteByte(&uart1_output_buffer, top_1_set.dac_setting_scaled_and_calibrated >> 8);      // Top 1 Set High Byte
+  BufferByte64WriteByte(&uart1_output_buffer, top_1_set.dac_setting_scaled_and_calibrated & 0x00FF);  // Top 1 Set High Byte
+  BufferByte64WriteByte(&uart1_output_buffer, top_2_set.dac_setting_scaled_and_calibrated >> 8);      // Top 2 Set High Byte
+  BufferByte64WriteByte(&uart1_output_buffer, top_2_set.dac_setting_scaled_and_calibrated & 0x00FF);  // Top 2 Set High Byte
   BufferByte64WriteByte(&uart1_output_buffer, heater_set_point >> 8);     // Heater Set High Byte
   BufferByte64WriteByte(&uart1_output_buffer, heater_set_point & 0x00FF); // Heater Set High Byte
   BufferByte64WriteByte(&uart1_output_buffer, (crc >> 8));
@@ -723,13 +751,13 @@ void A36717DownloadData(unsigned char *msg_data) {
   temp = msg_data[2];
   temp <<= 8;
   temp += msg_data[3];
-  top_1_raw_vmon.filtered_adc_reading = temp;
+  top_1_raw_vmon.filtered_adc_reading = 0xFFFF-temp;
   ETMAnalogScaleCalibrateADCReading(&top_1_raw_vmon);
 
   temp = msg_data[4];
   temp <<= 8;
   temp += msg_data[5];
-  top_2_raw_vmon.filtered_adc_reading = temp;
+  top_2_raw_vmon.filtered_adc_reading = 0xFFFF-temp;
   ETMAnalogScaleCalibrateADCReading(&top_2_raw_vmon);
 
   temp = msg_data[6];
@@ -844,8 +872,10 @@ void ETMCanSlaveExecuteCMDBoardSpecific(ETMCanMessage* message_ptr) {
       */
       
     case ETM_CAN_REGISTER_GUN_DRIVER_SET_1_GRID_TOP_SET_POINT:
-      top_2_set_point = message_ptr->word0;
-      top_1_set_point = message_ptr->word1;
+      top_2_set.set_point = message_ptr->word0;
+      ETMAnalogScaleCalibrateDACSetting(&top_2_set);
+      top_1_set.set_point = message_ptr->word1;
+      ETMAnalogScaleCalibrateDACSetting(&top_1_set);
       _CONTROL_NOT_CONFIGURED = 0;
       break;
       
