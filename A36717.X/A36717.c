@@ -275,13 +275,13 @@ void InitializeA36717(void) {
   PIN_LED_TEST_POINT_A = 0;
   
 
-#define PS_MAX_DAC_OUTPUT       0x5000
+#define PS_MAX_DAC_OUTPUT       0x8000
 #define PS_MIN_DAC_OUTPUT       0x1A00
-#define DAC_FAST_STEP           0x0004
-#define DAC_SLOW_STEP           0x0001
+#define DAC_FAST_STEP           0x0006
+#define DAC_SLOW_STEP           0x0002
 
 #define BIAS_TARGET             40000   // 400V
-#define BIAS_WINDOW              6000   // 60V
+#define BIAS_WINDOW              3000   // 30V
 
 #define TOP_TARGET              3000   // 30V
 #define TOP_WINDOW              1500   // 15V
@@ -296,7 +296,7 @@ void InitializeA36717(void) {
   bias_supply.fast_step_more_power = DAC_FAST_STEP;
   bias_supply.slow_step_more_power = DAC_SLOW_STEP;
   bias_supply.fast_step_less_power = DAC_FAST_STEP;
-  bias_supply.slow_step_more_power = DAC_SLOW_STEP;
+  bias_supply.slow_step_less_power = DAC_SLOW_STEP;
 
   
 
@@ -310,7 +310,7 @@ void InitializeA36717(void) {
   top_supply.fast_step_more_power = DAC_FAST_STEP;
   top_supply.slow_step_more_power = DAC_SLOW_STEP;
   top_supply.fast_step_less_power = DAC_FAST_STEP;
-  top_supply.slow_step_more_power = DAC_SLOW_STEP;
+  top_supply.slow_step_less_power = DAC_SLOW_STEP;
 
 
 
@@ -360,7 +360,7 @@ void InitializeA36717(void) {
 #define TOP_ABSOLUTE_TRIP_COUNTER        0
 
 
-#define BIAS_VMON_SCALE_FACTOR           1
+#define BIAS_VMON_SCALE_FACTOR           0.7455
 #define BIAS_OVER_TRIP_POINT_ABSOLUTE    50000 // 500 Volts
 #define BIAS_UNDER_TRIP_POINT_ABSOLUTE   25000 // 250 Volts
 #define BIAS_ABSOLUTE_TRIP_COUNTER       0 
