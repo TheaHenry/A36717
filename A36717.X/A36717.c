@@ -74,7 +74,8 @@ unsigned int do_control;
 
 TYPE_UC2827_CONTROL bias_supply;
 TYPE_UC2827_CONTROL top_supply;
-
+unsigned int detected_PRF_log[10];
+unsigned int datalog_counter;
 
 int main(void) {
 
@@ -171,6 +172,8 @@ void DoA36717(void) {
     if (global_data_A36717.detected_PRF != (PR2_VALUE_1_6_MS >> 4))
     {
         global_data_A36717.detected_PRF = PR2_VALUE_1_6_MS >> 4;
+        datalog_counter &= 10;
+        detected_PRF_log[datalog_counter++]= PR2_VALUE_1_6_MS >> 4;
         //UpdateBias();
     }
   }
@@ -262,19 +265,19 @@ void DoA36717(void) {
       slave_board_data.log_data[10] =  heater_vmon.reading_scaled_and_calibrated;
       slave_board_data.log_data[11] = heater_set_point;
       
-      ETMCanSlaveSetDebugRegister(0x0, global_data_A36717.detected_PRF);
-      ETMCanSlaveSetDebugRegister(0x1, bias_supply.dac_setting);
-      ETMCanSlaveSetDebugRegister(0x2, 22);
-      ETMCanSlaveSetDebugRegister(0x3, 33);
-      ETMCanSlaveSetDebugRegister(0x4, 44);
-      ETMCanSlaveSetDebugRegister(0x5, 55);
-      ETMCanSlaveSetDebugRegister(0x6, 66);
-      ETMCanSlaveSetDebugRegister(0x7, 77);
-      ETMCanSlaveSetDebugRegister(0x8, 88);
-      ETMCanSlaveSetDebugRegister(0x9, 99);
-      ETMCanSlaveSetDebugRegister(0xA, 101);
-      ETMCanSlaveSetDebugRegister(0xB, 102);
-      ETMCanSlaveSetDebugRegister(0xC, 103);
+      ETMCanSlaveSetDebugRegister(0x0, bias_supply.dac_setting);
+      ETMCanSlaveSetDebugRegister(0x1,global_data_A36717.detected_PRF );
+      ETMCanSlaveSetDebugRegister(0x2, detected_PRF_log[1]);
+      ETMCanSlaveSetDebugRegister(0x3, detected_PRF_log[2]);
+      ETMCanSlaveSetDebugRegister(0x4, detected_PRF_log[3]);
+      ETMCanSlaveSetDebugRegister(0x5, detected_PRF_log[4]);
+      ETMCanSlaveSetDebugRegister(0x6, detected_PRF_log[5]);
+      ETMCanSlaveSetDebugRegister(0x7, detected_PRF_log[6]);
+      ETMCanSlaveSetDebugRegister(0x8, detected_PRF_log[7]);
+      ETMCanSlaveSetDebugRegister(0x9, detected_PRF_log[8]);
+      ETMCanSlaveSetDebugRegister(0xA, detected_PRF_log[9]);
+      ETMCanSlaveSetDebugRegister(0xB, detected_PRF_log[10]);
+      ETMCanSlaveSetDebugRegister(0xC, 0xFF);
       ETMCanSlaveSetDebugRegister(0xD, return_data);
       ETMCanSlaveSetDebugRegister(0xE, LTC265X_single_channel_error_count);
       ETMCanSlaveSetDebugRegister(0xF, dac_return_value);
@@ -547,6 +550,12 @@ void InitializeA36717(void) {
   top_1_set.enabled = 0xFF;
   top_2_set.enabled = 0xFF;
 
+  datalog_counter= 1;
+  while (datalog_counter<=10)
+  {
+  detected_PRF_log[datalog_counter++]=0;
+  }
+  datalog_counter= 1;
 }
 
 
@@ -976,6 +985,8 @@ void __attribute__((interrupt, no_auto_psv)) _IC4Interrupt(void) {
         if (global_data_A36717.detected_PRF != temp)
         {
             global_data_A36717.detected_PRF = temp;
+            datalog_counter &= 10;
+            detected_PRF_log[datalog_counter++]= temp;
             //UpdateBias();
         }
     }
