@@ -1,6 +1,7 @@
 #include "A36717.h"
 #include "P1395_CAN_SLAVE.h"
 #include "FIRMWARE_VERSION.h"
+#include <spi.h>
 
 // This is the firmware for modulator- HV section
 
@@ -38,10 +39,14 @@ void CheckAnalogFaults(void);
 void A36717TransmitData(void); 
 void A36717ReceiveData(void); 
 void A36717DownloadData(unsigned char *msg_data);
+void UpdateBias (void);
 
 unsigned int heater_set_point;
 unsigned int top_1_set_point;
 unsigned int top_2_set_point;
+
+unsigned int dac_return_value;
+unsigned int return_data;
 
 ControlData global_data_A36717;
 LTC265X U10_LTC2654;
@@ -61,15 +66,14 @@ AnalogInput heater_2_imon;
 AnalogOutput top_1_set;
 AnalogOutput top_2_set;
 
+#define drive_per_PRF_values 30500,26551,24483,23114,22105,21314,20667,20122,19654,19244,18880,18555,18260,17991,17745,17517,17306,17109,16925,16753,16590,16436,16291,16153,16021,15896,15777,15662,15553,15448,15347,15250,15156,15066,14979,14894,14813,14734,14658,14584,14512,14442,14374,14309,14244,14182,14121,14062,14004,13947,13892,13838,13786,13734,13684,13635,13587,13539,13493,13448,13403,13360,13317,13275,13234,13194,13154,13115,13077,13040,13003,12966,12931,12895,12861,12827,12793,12760,12728,12696,12664,12633,12603,12573,12543,12514,12485,12456,12428,12400,12373,12346,12319,12293,12267,12241,12216,12191,12166,12142,12118,12094,12070,12047,12024,12001,11979,11956,11934,11913,11891,11870,11849,11828,11807,11787,11766,11746,11727,11707,11688,11668,11649,11630,11612,11593
+
+const unsigned int drive_per_PRF[126] = {drive_per_PRF_values};
 
 unsigned int do_control;
 
 TYPE_UC2827_CONTROL bias_supply;
 TYPE_UC2827_CONTROL top_supply;
-
-
-
-
 
 
 int main(void) {
@@ -95,8 +99,10 @@ void DoStateMachine(void) {
   case STATE_OPERATE:
     PIN_BIAS_ENABLE = ENABLE_SUPPLY;
     PIN_TOP_ENABLE  = ENABLE_SUPPLY;
-    WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, 0x3000);// bias ref
-    WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_A, 0x2B00);
+    top_supply.dac_setting = 0x2B00;
+    bias_supply.dac_setting = 0x3000;
+    WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, bias_supply.dac_setting);
+    WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_A, top_supply.dac_setting);
     while(global_data_A36717.control_state == STATE_OPERATE) {
       DoA36717();
     }
@@ -105,7 +111,7 @@ void DoStateMachine(void) {
     
     
  case STATE_COLD_FAULT:
-     
+
 	break;
 	
   default:
@@ -128,6 +134,15 @@ void DoA36717(void) {
     top_supply.reading = top_1_raw_vmon.reading_scaled_and_calibrated;
   }
   ETMCanSlaveDoCan();
+
+  if ((PIN_PIC_COLD_FLT == 1) || (PIN_PIC_HOT_FLT == 1))
+  {
+      //PIN_PIC_PULSE_ENABLE_NOT = 1;
+  }
+  else
+  {
+      PIN_PIC_PULSE_ENABLE_NOT = 0;
+  }
   
 
   if (do_control) {
@@ -136,15 +151,38 @@ void DoA36717(void) {
     do_control = 0;
     DoControlLoop(&bias_supply);
     DoControlLoop(&top_supply);
-    WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_A, top_supply.dac_setting);
-    WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, bias_supply.dac_setting);
+    SPI2STAT &= SPI_RX_OVFLOW_CLR;
+    if(SPI2STATbits.SPIRBF)
+    {
+      return_data = SPI2BUF;
+    }
+    dac_return_value= WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_A, top_supply.dac_setting);
+    dac_return_value= WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, bias_supply.dac_setting);
     
-//    WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_D, bias_supply.reading<<4);
 
     CheckAnalogFaults();
 
   }
   
+  if (_T2IF == 1)
+  {
+    _T2IF = 0;
+    global_data_A36717.input_capture_sample = 0;
+    if (global_data_A36717.detected_PRF != (PR2_VALUE_1_6_MS >> 4))
+    {
+        global_data_A36717.detected_PRF = PR2_VALUE_1_6_MS >> 4;
+        //UpdateBias();
+    }
+  }
+
+    SPI2STAT &= SPI_RX_OVFLOW_CLR;
+    if(SPI2STATbits.SPIRBF)
+    {
+      return_data = SPI2BUF;
+    }
+    dac_return_value= WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, bias_supply.dac_setting);
+
+
   if (_T3IF == 1 ) {
     // This happens once every 100uS
     _T3IF = 0;
@@ -163,27 +201,32 @@ void DoA36717(void) {
     if (ETMCanSlaveGetComFaultStatus()) 
     {
       _FAULT_CAN_COMM_LOSS = 1;
+      PIN_PIC_COLD_FLT = 1;
     }
     else 
     {
       if (ETMCanSlaveGetSyncMsgResetEnable()) 
       {
 	       _FAULT_CAN_COMM_LOSS = 0;
+               PIN_PIC_COLD_FLT = 0;
       }
     }
     
     // -------------------- CHECK FOR HIGH SIDE CAN COMM LOSS --------- //
-    #define HIGH_SIDE_TIMEOUT  50// 5msec
+    #define HIGH_SIDE_TIMEOUT  10// 1msec
     
     if (global_data_A36717.counter_100us_high_side_loss > HIGH_SIDE_TIMEOUT) 
     {
       _FAULT_HIGH_SIDE_COMM_LOSS = 1;
+      //PIN_PIC_COLD_FLT = 1;
+
     } 
     else 
     {
       if (ETMCanSlaveGetSyncMsgResetEnable())
       {
 	       _FAULT_HIGH_SIDE_COMM_LOSS = 0;
+               PIN_PIC_COLD_FLT = 0;
       }
     }
     global_data_A36717.counter_100us_high_side_loss++;
@@ -219,9 +262,9 @@ void DoA36717(void) {
       slave_board_data.log_data[10] =  heater_vmon.reading_scaled_and_calibrated;
       slave_board_data.log_data[11] = heater_set_point;
       
-      ETMCanSlaveSetDebugRegister(0x0, bias_supply.target);
-      ETMCanSlaveSetDebugRegister(0x1, bias_supply.reading);
-      ETMCanSlaveSetDebugRegister(0x2, bias_supply.dac_setting);
+      ETMCanSlaveSetDebugRegister(0x0, global_data_A36717.detected_PRF);
+      ETMCanSlaveSetDebugRegister(0x1, bias_supply.dac_setting);
+      ETMCanSlaveSetDebugRegister(0x2, 22);
       ETMCanSlaveSetDebugRegister(0x3, 33);
       ETMCanSlaveSetDebugRegister(0x4, 44);
       ETMCanSlaveSetDebugRegister(0x5, 55);
@@ -232,9 +275,9 @@ void DoA36717(void) {
       ETMCanSlaveSetDebugRegister(0xA, 101);
       ETMCanSlaveSetDebugRegister(0xB, 102);
       ETMCanSlaveSetDebugRegister(0xC, 103);
-      ETMCanSlaveSetDebugRegister(0xD, 104);
-      ETMCanSlaveSetDebugRegister(0xE, 105);
-      ETMCanSlaveSetDebugRegister(0xF, 106);
+      ETMCanSlaveSetDebugRegister(0xD, return_data);
+      ETMCanSlaveSetDebugRegister(0xE, LTC265X_single_channel_error_count);
+      ETMCanSlaveSetDebugRegister(0xF, dac_return_value);
     }
     
     global_data_A36717.led_counter++;
@@ -277,18 +320,19 @@ void InitializeA36717(void) {
 
 #define PS_MAX_DAC_OUTPUT       0x8000
 #define PS_MIN_DAC_OUTPUT       0x1A00
+#define BIAS_MIN_DAC_OUTPUT     10000
 #define DAC_FAST_STEP           0x0006
-#define DAC_SLOW_STEP           0x0002
+#define DAC_SLOW_STEP           0x0001
 
 #define BIAS_TARGET             40000   // 400V
-#define BIAS_WINDOW              3000   // 30V
+#define BIAS_WINDOW              5000   // 50V
 
 #define TOP_TARGET              3000   // 30V
 #define TOP_WINDOW              1500   // 15V
 
   // Set up the control loops
   bias_supply.max_dac_setting = PS_MAX_DAC_OUTPUT;
-  bias_supply.min_dac_setting = PS_MIN_DAC_OUTPUT;
+  bias_supply.min_dac_setting = BIAS_MIN_DAC_OUTPUT;
   bias_supply.dac_setting = 0x3000;
   bias_supply.target = BIAS_TARGET;
   bias_supply.min_window = BIAS_TARGET - BIAS_WINDOW;
@@ -313,6 +357,19 @@ void InitializeA36717(void) {
   top_supply.slow_step_less_power = DAC_SLOW_STEP;
 
 
+  // Set up PRF detection (input capture)
+  IC4CON= IC4CON_SETTING;
+  T2CON = T2CON_VALUE;
+   _T2IF = 0;
+  PR2 = PR2_VALUE_1_6_MS;
+  _T2IF = 0;
+  _IC4IF = 0;
+  _IC4IE = 1;
+  _IC4IP = 5;
+
+  global_data_A36717.input_capture_sample = 0;
+  global_data_A36717.detected_PRF = PR2_VALUE_1_6_MS >> 4;
+  global_data_A36717.last_detected_PRF = PR2_VALUE_1_6_MS >> 4;
 
   global_data_A36717.status = 0x10;
 
@@ -329,8 +386,8 @@ void InitializeA36717(void) {
   
 
   // Set up the UART
-  _U1RXIP = 5;
-  _U1TXIP = 5;
+  _U1RXIP = 6;
+  _U1TXIP = 6;
   
   _U1RXIF = 0;
   _U1TXIF = 0;
@@ -357,13 +414,13 @@ void InitializeA36717(void) {
 #define TOP_VMON_SCALE_FACTOR            0.50354 //based on 1V per 100V sensed * ADC conversion (1024/3.3) * accumulation of 64 samples.
 #define TOP_OVER_TRIP_POINT_ABSOLUTE     25000 // 250 Volts
 #define TOP_UNDER_TRIP_POINT_ABSOLUTE    10000 // 100 Volts
-#define TOP_ABSOLUTE_TRIP_COUNTER        0
+#define TOP_ABSOLUTE_TRIP_COUNTER        2
 
 
 #define BIAS_VMON_SCALE_FACTOR           0.7455
 #define BIAS_OVER_TRIP_POINT_ABSOLUTE    50000 // 500 Volts
-#define BIAS_UNDER_TRIP_POINT_ABSOLUTE   25000 // 250 Volts
-#define BIAS_ABSOLUTE_TRIP_COUNTER       0 
+#define BIAS_UNDER_TRIP_POINT_ABSOLUTE   35000 // 350 Volts
+#define BIAS_ABSOLUTE_TRIP_COUNTER       2
 
 #define TOP_MIN_SET_POINT                10000  //100V
 #define TOP_MAX_SET_POINT                25000  //250V
@@ -575,19 +632,28 @@ void CheckAnalogFaults(void) {
   // ------------------- CHECK BIAS VOLTAGE FAULTS -------------------- //
   if (ETMAnalogCheckOverAbsolute(&bias_vmon)) {
     _FAULT_BIAS_OVER_VOLTAGE_ABSOLUTE = 1;
+   // PIN_PIC_HOT_FLT = 1;
+    PIN_BIAS_FLT = 1;
   } else {
     if (ETMCanSlaveGetSyncMsgResetEnable()) {
       _FAULT_BIAS_OVER_VOLTAGE_ABSOLUTE = 0;
+      PIN_PIC_HOT_FLT = 0;
+      PIN_BIAS_FLT = 0;
     }
   }
   
   if (ETMAnalogCheckUnderAbsolute(&bias_vmon)) {
     if (global_data_A36717.control_state > STATE_BIAS_SUPPLY_RAMP_UP) {
       _FAULT_BIAS_UNDER_VOLTAGE_ABSOLUTE = 1;
+    //  PIN_PIC_COLD_FLT = 1;
+      PIN_BIAS_FLT = 1;
+
     }
   } else {
     if (ETMCanSlaveGetSyncMsgResetEnable()) {
       _FAULT_BIAS_UNDER_VOLTAGE_ABSOLUTE = 0;
+      PIN_PIC_COLD_FLT = 0;
+      PIN_BIAS_FLT = 0;
     }
   }
   
@@ -595,19 +661,27 @@ void CheckAnalogFaults(void) {
   // ---------------------- CHECK TOP 1 VOLTAGE FAULTS ------------------- //
   if (ETMAnalogCheckOverAbsolute(&top_1_vmon)) {
     _FAULT_TOP_1_OVER_VOLTAGE_ABSOLUTE = 1;
+   // PIN_PIC_HOT_FLT = 1;
+    PIN_TOP_FLT = 1;
   } else {
     if (ETMCanSlaveGetSyncMsgResetEnable()) {
       _FAULT_TOP_1_OVER_VOLTAGE_ABSOLUTE = 0;
+      PIN_PIC_HOT_FLT = 0;
+      PIN_TOP_FLT = 0;
     }
   }
 
   if (ETMAnalogCheckUnderAbsolute(&top_1_vmon)) {
     if (global_data_A36717.control_state > STATE_TOP_RAMP_UP) {
       _FAULT_TOP_1_UNDER_VOLTAGE_ABSOLUTE = 1;
+    //  PIN_PIC_HOT_FLT = 1;
+      PIN_TOP_FLT = 1;
     }
   } else {
     if (ETMCanSlaveGetSyncMsgResetEnable()) {
-      _FAULT_TOP_1_OVER_VOLTAGE_ABSOLUTE = 0;
+      _FAULT_TOP_1_UNDER_VOLTAGE_ABSOLUTE = 0;
+      PIN_PIC_HOT_FLT = 0;
+      PIN_TOP_FLT = 0;
     }
   }
 
@@ -615,19 +689,27 @@ void CheckAnalogFaults(void) {
   // ---------------------- CHECK TOP 2 VOLTAGE FAULTS ------------------- //
   if (ETMAnalogCheckOverAbsolute(&top_2_vmon)) {
     _FAULT_TOP_2_OVER_VOLTAGE_ABSOLUTE = 1;
+    //PIN_PIC_HOT_FLT = 1;
+    PIN_TOP_FLT = 1;
   } else {
     if (ETMCanSlaveGetSyncMsgResetEnable()) {
       _FAULT_TOP_2_OVER_VOLTAGE_ABSOLUTE = 0;
+      PIN_PIC_HOT_FLT = 0;
+      PIN_TOP_FLT = 0;
     }
   }
 
   if (ETMAnalogCheckUnderAbsolute(&top_2_vmon)) {
     if (global_data_A36717.control_state > STATE_TOP_RAMP_UP) {
       _FAULT_TOP_2_UNDER_VOLTAGE_ABSOLUTE = 1;
+    //  PIN_PIC_HOT_FLT = 1;
+      PIN_TOP_FLT = 1;
     }
   } else {
     if (ETMCanSlaveGetSyncMsgResetEnable()) {
-      _FAULT_TOP_2_OVER_VOLTAGE_ABSOLUTE = 0;
+      _FAULT_TOP_2_UNDER_VOLTAGE_ABSOLUTE = 0;
+      PIN_PIC_HOT_FLT = 0;
+      PIN_TOP_FLT = 0;
     }
   }
 
@@ -671,16 +753,38 @@ else
 if (global_data_A36717.status & 0x10)
 {
   _FAULT_HEATER_NOT_READY = 1;
+  //PIN_PIC_COLD_FLT = 1;
+  //PIN_PIC_HTR_FLT = 1;
 }
 else
 {
   _FAULT_HEATER_NOT_READY = 0;
+  PIN_PIC_COLD_FLT = 0;
+  PIN_PIC_HTR_FLT = 0;
 }
 
   
 }
   
 
+void UpdateBias (void) {
+    unsigned int temp;
+    temp= drive_per_PRF[global_data_A36717.detected_PRF];
+    if ((temp >= bias_supply.min_dac_setting) && (temp <= bias_supply.max_dac_setting))
+    {
+      if (global_data_A36717.last_detected_PRF != temp)
+      {
+        global_data_A36717.last_detected_PRF = temp;
+        bias_supply.dac_setting = temp;
+        SPI2STAT &= SPI_RX_OVFLOW_CLR;
+        if(SPI2STATbits.SPIRBF)
+        {
+          return_data = SPI2BUF;
+        }
+        dac_return_value= WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, bias_supply.dac_setting);
+      }
+    }
+}
 
 void A36717TransmitData(void) {
   unsigned int crc = 0x5555;
@@ -857,6 +961,29 @@ void __attribute__((interrupt, no_auto_psv)) _DefaultInterrupt(void) {
     Nop();
     Nop();
     __asm__ ("Reset");
+}
+
+
+void __attribute__((interrupt, no_auto_psv)) _IC4Interrupt(void) {
+    unsigned int temp;
+    TMR2 =0x0000;
+    _IC4IF = 0;
+    
+    if (global_data_A36717.input_capture_sample == 1)
+    {
+        temp = IC4BUF;
+        temp= temp >> 4;
+        if (global_data_A36717.detected_PRF != temp)
+        {
+            global_data_A36717.detected_PRF = temp;
+            //UpdateBias();
+        }
+    }
+    else
+    {
+      global_data_A36717.input_capture_sample = 1;
+      temp = IC4BUF;
+    }
 }
 
 

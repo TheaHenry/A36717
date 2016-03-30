@@ -8,6 +8,7 @@
 #include <timer.h>
 #include <libpic30.h>
 #include <uart.h>
+#include <incap.h>
 #include "ETM.h"
 #include "P1395_CAN_SLAVE.h"
 
@@ -92,8 +93,20 @@
    TMR3 Configuration
    Timer3 - Used for 100usTicToc
 */
-#define T3CON_VALUE                    (T3_ON & T3_IDLE_CON & T3_GATE_OFF & T3_PS_1_1 & T3_SOURCE_INT)
+#define T3CON_VALUE                    (T3_ON & T3_IDLE_CON & T3_GATE_OFF & T3_PS_1_1 & T3_SOURCE_INT) //100ns per bit
 #define PR3_VALUE_100_US               1000
+
+
+/*TMR2 configuration 
+  Used for PRF detection*/
+
+#define T2CON_VALUE                     (T2_ON & T2_IDLE_CON & T2_GATE_OFF & T2_32BIT_MODE_OFF & T2_PS_1_8 & T2_SOURCE_INT) //800ns per bit
+#define PR2_VALUE_1_6_MS                  2000 //10khz
+
+
+//---------------Input capture configuration---------------//
+
+#define IC4CON_SETTING    (IC_IDLE_CON & IC_TIMER2_SRC & IC_INT_1CAPTURE & IC_EVERY_16_RISE_EDGE)
 
 
 
@@ -116,6 +129,9 @@ typedef struct {
   unsigned int counter_100us_high_side_loss;
   unsigned char status;
   unsigned int led_counter;
+  unsigned int input_capture_sample;
+  unsigned int detected_PRF;
+  unsigned int last_detected_PRF;
 } ControlData;
 
 
