@@ -47,6 +47,7 @@ unsigned int top_2_set_point;
 
 unsigned int dac_return_value;
 unsigned int return_data;
+unsigned int last_PRF_sample;
 
 ControlData global_data_A36717;
 LTC265X U10_LTC2654;
@@ -66,9 +67,11 @@ AnalogInput heater_2_imon;
 AnalogOutput top_1_set;
 AnalogOutput top_2_set;
 
-#define drive_per_PRF_values 30500,26551,24483,23114,22105,21314,20667,20122,19654,19244,18880,18555,18260,17991,17745,17517,17306,17109,16925,16753,16590,16436,16291,16153,16021,15896,15777,15662,15553,15448,15347,15250,15156,15066,14979,14894,14813,14734,14658,14584,14512,14442,14374,14309,14244,14182,14121,14062,14004,13947,13892,13838,13786,13734,13684,13635,13587,13539,13493,13448,13403,13360,13317,13275,13234,13194,13154,13115,13077,13040,13003,12966,12931,12895,12861,12827,12793,12760,12728,12696,12664,12633,12603,12573,12543,12514,12485,12456,12428,12400,12373,12346,12319,12293,12267,12241,12216,12191,12166,12142,12118,12094,12070,12047,12024,12001,11979,11956,11934,11913,11891,11870,11849,11828,11807,11787,11766,11746,11727,11707,11688,11668,11649,11630,11612,11593
+#define drive_per_PRF_values 26500,24327,23157,22369,21781,21315,20930,20604,20322,20074,19853,19654,19473,19308,19155,19014,18883,18760,18645,18536,18434,18337,18245,18158,18074,17995,17918,17845,17775,17708,17643,17581,17521,17462,17406,17352,17299,17248,17198,17150,17103,17058,17014,16971,16929,16888,16848,16809,16771,16734,16697,16662,16627,16593,16560,16528,16496,16464,16434,16404,16374,16345,16317,16289,16262,16235,16208,16182,16157,16132,16107,16083,16059,16035,16012,15989,15966,15944,15922,15901,15880,15859,15838,15818,15798,15778,15758,15739,15720,15701,15683,15664,15646,15628,15611,15593,15576,15559,15542,15526,15509,15493,15477,15461,15445,15430,15414,15399,15384,15369,15354,15340,15325,15311,15297,15283,15269,15255,15242,15228,15215,15202,15188,15176,15163,15150
+#define top_drive_per_PRF_values 21480,21012,19100,17000,16100,14486,13839,13250,12800,12600,12450,12200,12000,11900,11870,11823,11787,11660,11543,11434,11332,11236,11146,11061,10981,10906,10834,10766,10702,10640,10582,10526,10473,10422,10373,10326,10281,10238,10197,10158,10119,10083,10048,10014,9981,9950,9919,9890,9862,9834,9808,9783,9758,9734,9711,9689,9668,9647,9627,9608,9589,9571,9553,9536,9519,9503,9488,9473,9458,9444,9431,9418,9405,9393,9381,9369,9358,9347,9337,9327,9317,9307,9298,9289,9281,9272,9264,9257,9249,9242,9235,9229,9222,9216,9210,9204,9199,9193,9188,9183,9179,9174,9170,9166,9162,9158,9155,9151,9148,9145,9142,9140,9137,9135,9133,9130,9129,9127,9125,9124,9122,9121,9120,9119,9118,9117
 
 const unsigned int drive_per_PRF[126] = {drive_per_PRF_values};
+const unsigned int top_drive_per_PRF[126] = {top_drive_per_PRF_values};
 
 unsigned int do_control;
 
@@ -172,9 +175,9 @@ void DoA36717(void) {
     if (global_data_A36717.detected_PRF != (PR2_VALUE_1_6_MS >> 4))
     {
         global_data_A36717.detected_PRF = PR2_VALUE_1_6_MS >> 4;
-        datalog_counter &= 10;
-        detected_PRF_log[datalog_counter++]= PR2_VALUE_1_6_MS >> 4;
-        //UpdateBias();
+        datalog_counter %= 10;
+        detected_PRF_log[++datalog_counter]= PR2_VALUE_1_6_MS >> 4;
+        UpdateBias();
     }
   }
 
@@ -280,7 +283,7 @@ void DoA36717(void) {
       ETMCanSlaveSetDebugRegister(0xC, 0xFF);
       ETMCanSlaveSetDebugRegister(0xD, return_data);
       ETMCanSlaveSetDebugRegister(0xE, LTC265X_single_channel_error_count);
-      ETMCanSlaveSetDebugRegister(0xF, dac_return_value);
+      ETMCanSlaveSetDebugRegister(0xF, top_supply.dac_setting);
     }
     
     global_data_A36717.led_counter++;
@@ -551,6 +554,7 @@ void InitializeA36717(void) {
   top_2_set.enabled = 0xFF;
 
   datalog_counter= 1;
+  last_PRF_sample=125;
   while (datalog_counter<=10)
   {
   detected_PRF_log[datalog_counter++]=0;
@@ -781,18 +785,40 @@ void UpdateBias (void) {
     temp= drive_per_PRF[global_data_A36717.detected_PRF];
     if ((temp >= bias_supply.min_dac_setting) && (temp <= bias_supply.max_dac_setting))
     {
-      if (global_data_A36717.last_detected_PRF != temp)
+        if(temp >= global_data_A36717.last_detected_PRF)
+        {
+      if ((temp - global_data_A36717.last_detected_PRF >=200))
       {
         global_data_A36717.last_detected_PRF = temp;
         bias_supply.dac_setting = temp;
+        top_supply.dac_setting = top_drive_per_PRF[global_data_A36717.detected_PRF];
         SPI2STAT &= SPI_RX_OVFLOW_CLR;
         if(SPI2STATbits.SPIRBF)
         {
           return_data = SPI2BUF;
         }
         dac_return_value= WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, bias_supply.dac_setting);
+        WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_A, top_supply.dac_setting);
+      }
+        }
+         if(temp <= global_data_A36717.last_detected_PRF)
+        {
+      if ((global_data_A36717.last_detected_PRF -temp >=200))
+      {
+        global_data_A36717.last_detected_PRF = temp;
+        bias_supply.dac_setting = temp;
+        top_supply.dac_setting = top_drive_per_PRF[global_data_A36717.detected_PRF];
+        SPI2STAT &= SPI_RX_OVFLOW_CLR;
+        if(SPI2STATbits.SPIRBF)
+        {
+          return_data = SPI2BUF;
+        }
+        dac_return_value= WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, bias_supply.dac_setting);
+        WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_A, top_supply.dac_setting);
       }
     }
+    }
+
 }
 
 void A36717TransmitData(void) {
@@ -982,12 +1008,37 @@ void __attribute__((interrupt, no_auto_psv)) _IC4Interrupt(void) {
     {
         temp = IC4BUF;
         temp= temp >> 4;
-        if (global_data_A36717.detected_PRF != temp)
+        if (temp >= last_PRF_sample)
         {
-            global_data_A36717.detected_PRF = temp;
-            datalog_counter &= 10;
-            detected_PRF_log[datalog_counter++]= temp;
-            //UpdateBias();
+            if (temp- last_PRF_sample >=1)
+            {
+                last_PRF_sample = temp;
+
+            }
+            else
+            {
+                last_PRF_sample = temp;
+                global_data_A36717.detected_PRF = temp;
+                datalog_counter %= 10;
+                detected_PRF_log[++datalog_counter]= temp;
+                UpdateBias();
+            }
+        }
+        else
+        {
+            if ( last_PRF_sample -temp >=1)
+            {
+                last_PRF_sample = temp;
+
+            }
+            else
+            {
+                last_PRF_sample = temp;
+                global_data_A36717.detected_PRF = temp;
+                datalog_counter %= 10;
+                detected_PRF_log[++datalog_counter]= temp;
+                UpdateBias();
+            }
         }
     }
     else
