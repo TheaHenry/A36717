@@ -11,7 +11,7 @@
 #include <incap.h>
 #include "ETM.h"
 #include "P1395_CAN_SLAVE.h"
-
+#include "ETM_CRC.h"
 
 #define FCY_CLK     10000000
 
@@ -149,9 +149,8 @@ typedef struct {
 #define A36717_U1STA_VALUE         (UART_INT_TX & UART_TX_PIN_NORMAL & UART_TX_ENABLE & UART_INT_RX_CHAR & UART_ADR_DETECT_DIS)
 #define A36717_U1BRG_VALUE         (((FCY_CLK/UART1_BAUDRATE)/16)-1)
 
-#define transmitMessageLength 4
-#define CRCseed               0xFFFF
-#define CRCPoly
+#define transmitMessageLength 8
+
 
 
 /*
