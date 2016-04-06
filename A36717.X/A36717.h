@@ -149,6 +149,11 @@ typedef struct {
 #define A36717_U1STA_VALUE         (UART_INT_TX & UART_TX_PIN_NORMAL & UART_TX_ENABLE & UART_INT_RX_CHAR & UART_ADR_DETECT_DIS)
 #define A36717_U1BRG_VALUE         (((FCY_CLK/UART1_BAUDRATE)/16)-1)
 
+#define transmitMessageLength 4
+#define CRCseed               0xFFFF
+#define CRCPoly
+
+
 /*
   This is a non-linear integral-ish compensation scheme.
   It is not stable and will never reach a steady state response but will osciallate around the target.
