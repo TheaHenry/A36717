@@ -8,9 +8,10 @@
 #include <timer.h>
 #include <libpic30.h>
 #include <uart.h>
+#include <incap.h>
 #include "ETM.h"
 #include "P1395_CAN_SLAVE.h"
-
+#include "ETM_CRC.h"
 
 #define FCY_CLK     10000000
 
@@ -92,8 +93,20 @@
    TMR3 Configuration
    Timer3 - Used for 100usTicToc
 */
-#define T3CON_VALUE                    (T3_ON & T3_IDLE_CON & T3_GATE_OFF & T3_PS_1_1 & T3_SOURCE_INT)
+#define T3CON_VALUE                    (T3_ON & T3_IDLE_CON & T3_GATE_OFF & T3_PS_1_1 & T3_SOURCE_INT) //100ns per bit
 #define PR3_VALUE_100_US               1000
+
+
+/*TMR2 configuration 
+  Used for PRF detection*/
+
+#define T2CON_VALUE                     (T2_ON & T2_IDLE_CON & T2_GATE_OFF & T2_32BIT_MODE_OFF & T2_PS_1_8 & T2_SOURCE_INT) //800ns per bit
+#define PR2_VALUE_1_6_MS                  2000 //10khz
+
+
+//---------------Input capture configuration---------------//
+
+#define IC4CON_SETTING    (IC_IDLE_CON & IC_TIMER2_SRC & IC_INT_1CAPTURE & IC_EVERY_16_RISE_EDGE)
 
 
 
@@ -116,6 +129,9 @@ typedef struct {
   unsigned int counter_100us_high_side_loss;
   unsigned char status;
   unsigned int led_counter;
+  unsigned int input_capture_sample;
+  unsigned int detected_PRF;
+  unsigned int last_detected_PRF;
 } ControlData;
 
 
@@ -132,6 +148,10 @@ typedef struct {
 #define A36717_U1MODE_VALUE        (UART_EN & UART_IDLE_STOP & UART_DIS_WAKE & UART_DIS_LOOPBACK & UART_DIS_ABAUD & UART_NO_PAR_8BIT & UART_1STOPBIT)
 #define A36717_U1STA_VALUE         (UART_INT_TX & UART_TX_PIN_NORMAL & UART_TX_ENABLE & UART_INT_RX_CHAR & UART_ADR_DETECT_DIS)
 #define A36717_U1BRG_VALUE         (((FCY_CLK/UART1_BAUDRATE)/16)-1)
+
+#define transmitMessageLength 8
+
+
 
 /*
   This is a non-linear integral-ish compensation scheme.
