@@ -30,7 +30,6 @@ void A36717TransmitData(void);
 void A36717ReceiveData(void); 
 void A36717DownloadData(unsigned char *msg_data);
 void UpdateBias (void);
-unsigned int calculateCRC(unsigned int CRCseed, const void *data_ptr, unsigned int data_length); //returns 16 bit calculated CRC based on CRCtable. input is crc seed, pointer to the data, and data length in bytes.
 
 unsigned int heater_set_point;
 unsigned int top_1_set_point;
@@ -45,8 +44,7 @@ LTC265X U10_LTC2654;
 BUFFERBYTE64 uart1_input_buffer;
 BUFFERBYTE64 uart1_output_buffer;
 
-AnalogInput top_1_raw_vmon;  
-AnalogInput top_2_raw_vmon;
+AnalogInput top_raw_vmon;  
 AnalogInput bias_vmon;
 
 AnalogInput top_1_vmon;      
@@ -59,45 +57,13 @@ AnalogOutput top_1_set;
 AnalogOutput top_2_set;
 
 
-unsigned int transmitMessage[transmitMessageLength];
+
 
 #define drive_per_PRF_values 26500,24327,23157,22369,21781,21315,20930,20604,20322,20074,19853,19654,19473,19308,19155,19014,18883,18760,18645,18536,18434,18337,18245,18158,18074,17995,17918,17845,17775,17708,17643,17581,17521,17462,17406,17352,17299,17248,17198,17150,17103,17058,17014,16971,16929,16888,16848,16809,16771,16734,16697,16662,16627,16593,16560,16528,16496,16464,16434,16404,16374,16345,16317,16289,16262,16235,16208,16182,16157,16132,16107,16083,16059,16035,16012,15989,15966,15944,15922,15901,15880,15859,15838,15818,15798,15778,15758,15739,15720,15701,15683,15664,15646,15628,15611,15593,15576,15559,15542,15526,15509,15493,15477,15461,15445,15430,15414,15399,15384,15369,15354,15340,15325,15311,15297,15283,15269,15255,15242,15228,15215,15202,15188,15176,15163,15150
 #define top_drive_per_PRF_values 21480,21012,19100,17000,16100,14486,13839,13250,12800,12600,12450,12200,12000,11900,11870,11823,11787,11660,11543,11434,11332,11236,11146,11061,10981,10906,10834,10766,10702,10640,10582,10526,10473,10422,10373,10326,10281,10238,10197,10158,10119,10083,10048,10014,9981,9950,9919,9890,9862,9834,9808,9783,9758,9734,9711,9689,9668,9647,9627,9608,9589,9571,9553,9536,9519,9503,9488,9473,9458,9444,9431,9418,9405,9393,9381,9369,9358,9347,9337,9327,9317,9307,9298,9289,9281,9272,9264,9257,9249,9242,9235,9229,9222,9216,9210,9204,9199,9193,9188,9183,9179,9174,9170,9166,9162,9158,9155,9151,9148,9145,9142,9140,9137,9135,9133,9130,9129,9127,9125,9124,9122,9121,9120,9119,9118,9117
 
 const unsigned int drive_per_PRF[126] = {drive_per_PRF_values};
 const unsigned int top_drive_per_PRF[126] = {top_drive_per_PRF_values};
-static const unsigned int crctable[256] ={0x0000, 0x1189, 0x2312, 0x329B, 0x4624, 0x57AD, 0x6536, 0x74BF,
-0x8C48, 0x9DC1, 0xAF5A, 0xBED3, 0xCA6C, 0xDBE5, 0xE97E, 0xF8F7,
-0x0919, 0x1890, 0x2A0B, 0x3B82, 0x4F3D, 0x5EB4, 0x6C2F, 0x7DA6,
-0x8551, 0x94D8, 0xA643, 0xB7CA, 0xC375, 0xD2FC, 0xE067, 0xF1EE,
-0x1232, 0x03BB, 0x3120, 0x20A9, 0x5416, 0x459F, 0x7704, 0x668D,
-0x9E7A, 0x8FF3, 0xBD68, 0xACE1, 0xD85E, 0xC9D7, 0xFB4C, 0xEAC5,
-0x1B2B, 0x0AA2, 0x3839, 0x29B0, 0x5D0F, 0x4C86, 0x7E1D, 0x6F94,
-0x9763, 0x86EA, 0xB471, 0xA5F8, 0xD147, 0xC0CE, 0xF255, 0xE3DC,
-0x2464, 0x35ED, 0x0776, 0x16FF, 0x6240, 0x73C9, 0x4152, 0x50DB,
-0xA82C, 0xB9A5, 0x8B3E, 0x9AB7, 0xEE08, 0xFF81, 0xCD1A, 0xDC93,
-0x2D7D, 0x3CF4, 0x0E6F, 0x1FE6, 0x6B59, 0x7AD0, 0x484B, 0x59C2,
-0xA135, 0xB0BC, 0x8227, 0x93AE, 0xE711, 0xF698, 0xC403, 0xD58A,
-0x3656, 0x27DF, 0x1544, 0x04CD, 0x7072, 0x61FB, 0x5360, 0x42E9,
-0xBA1E, 0xAB97, 0x990C, 0x8885, 0xFC3A, 0xEDB3, 0xDF28, 0xCEA1,
-0x3F4F, 0x2EC6, 0x1C5D, 0x0DD4, 0x796B, 0x68E2, 0x5A79, 0x4BF0,
-0xB307, 0xA28E, 0x9015, 0x819C, 0xF523, 0xE4AA, 0xD631, 0xC7B8,
-0x48C8, 0x5941, 0x6BDA, 0x7A53, 0x0EEC, 0x1F65, 0x2DFE, 0x3C77,
-0xC480, 0xD509, 0xE792, 0xF61B, 0x82A4, 0x932D, 0xA1B6, 0xB03F,
-0x41D1, 0x5058, 0x62C3, 0x734A, 0x07F5, 0x167C, 0x24E7, 0x356E,
-0xCD99, 0xDC10, 0xEE8B, 0xFF02, 0x8BBD, 0x9A34, 0xA8AF, 0xB926,
-0x5AFA, 0x4B73, 0x79E8, 0x6861, 0x1CDE, 0x0D57, 0x3FCC, 0x2E45,
-0xD6B2, 0xC73B, 0xF5A0, 0xE429, 0x9096, 0x811F, 0xB384, 0xA20D,
-0x53E3, 0x426A, 0x70F1, 0x6178, 0x15C7, 0x044E, 0x36D5, 0x275C,
-0xDFAB, 0xCE22, 0xFCB9, 0xED30, 0x998F, 0x8806, 0xBA9D, 0xAB14,
-0x6CAC, 0x7D25, 0x4FBE, 0x5E37, 0x2A88, 0x3B01, 0x099A, 0x1813,
-0xE0E4, 0xF16D, 0xC3F6, 0xD27F, 0xA6C0, 0xB749, 0x85D2, 0x945B,
-0x65B5, 0x743C, 0x46A7, 0x572E, 0x2391, 0x3218, 0x0083, 0x110A,
-0xE9FD, 0xF874, 0xCAEF, 0xDB66, 0xAFD9, 0xBE50, 0x8CCB, 0x9D42,
-0x7E9E, 0x6F17, 0x5D8C, 0x4C05, 0x38BA, 0x2933, 0x1BA8, 0x0A21,
-0xF2D6, 0xE35F, 0xD1C4, 0xC04D, 0xB4F2, 0xA57B, 0x97E0, 0x8669,
-0x7787, 0x660E, 0x5495, 0x451C, 0x31A3, 0x202A, 0x12B1, 0x0338,
-0xFBCF, 0xEA46, 0xD8DD, 0xC954, 0xBDEB, 0xAC62, 0x9EF9, 0x8F70}; 
 
 
 unsigned int do_control;
@@ -156,14 +122,8 @@ void DoStateMachine(void) {
 void DoA36717(void) {
   A36717ReceiveData();
   bias_supply.reading = bias_vmon.reading_scaled_and_calibrated;
-  if (top_1_raw_vmon.reading_scaled_and_calibrated>= top_2_raw_vmon.reading_scaled_and_calibrated)
-  {
-    top_supply.reading = top_2_raw_vmon.reading_scaled_and_calibrated;
-  }
-  else
-  {
-    top_supply.reading = top_1_raw_vmon.reading_scaled_and_calibrated;
-  }
+  top_supply.reading = top_raw_vmon.reading_scaled_and_calibrated;
+
   ETMCanSlaveDoCan();
 
   if ((PIN_PIC_COLD_FLT == 1) || (PIN_PIC_HOT_FLT == 1))
@@ -281,12 +241,12 @@ void DoA36717(void) {
       A36717TransmitData();
       
       slave_board_data.log_data[0] = bias_supply.target;
-      slave_board_data.log_data[1] =  top_1_raw_vmon.reading_scaled_and_calibrated;
+      slave_board_data.log_data[1] =  top_raw_vmon.reading_scaled_and_calibrated;
       slave_board_data.log_data[2] =  top_1_vmon.reading_scaled_and_calibrated;
       slave_board_data.log_data[3] = top_1_set.set_point;
       
       slave_board_data.log_data[4] =  bias_vmon.reading_scaled_and_calibrated;
-      slave_board_data.log_data[5] =  top_2_raw_vmon.reading_scaled_and_calibrated;
+      slave_board_data.log_data[5] =  top_raw_vmon.reading_scaled_and_calibrated;
       slave_board_data.log_data[6] =  top_2_vmon.reading_scaled_and_calibrated;
       slave_board_data.log_data[7] = top_2_set.set_point;
       
@@ -465,22 +425,10 @@ void InitializeA36717(void) {
     ETMAnalogLoadDefaultCalibration();
   }
   
-  ETMAnalogInitializeInput(&top_1_raw_vmon,
+  ETMAnalogInitializeInput(&top_raw_vmon,
 			   MACRO_DEC_TO_SCALE_FACTOR_16(TOP_RAW_VMON_SCALE_FACTOR),
 			   OFFSET_ZERO,
 			   ANALOG_INPUT_0,
-			   NO_OVER_TRIP,
-			   NO_UNDER_TRIP,
-			   NO_TRIP_SCALE,
-			   NO_FLOOR,
-			   NO_RELATIVE_COUNTER,
-			   NO_ABSOLUTE_COUNTER
-			   );
-
-  ETMAnalogInitializeInput(&top_2_raw_vmon,
-			   MACRO_DEC_TO_SCALE_FACTOR_16(TOP_RAW_VMON_SCALE_FACTOR),
-			   OFFSET_ZERO,
-			   ANALOG_INPUT_1,
 			   NO_OVER_TRIP,
 			   NO_UNDER_TRIP,
 			   NO_TRIP_SCALE,
@@ -849,20 +797,25 @@ void UpdateBias (void) {
 }
 
 void A36717TransmitData(void) {
-  transmitMessage[1] = global_data_A36717.status | 0xFF00;
-  transmitMessage[2] = top_1_set.dac_setting_scaled_and_calibrated;
-  transmitMessage[3] = top_2_set.dac_setting_scaled_and_calibrated;
-  transmitMessage[4] = heater_set_point; 
-  unsigned int crc = calculateCRC(CRCseed, transmitMessage[0], transmitMessageLength);
+  unsigned char transmitMessage[transmitMessageLength];
+  transmitMessage[0] = 0xFF; //sync
+  transmitMessage[1] = global_data_A36717.status;
+  transmitMessage[2] = top_1_set.dac_setting_scaled_and_calibrated >>8; // Top 1 set voltage hi byte
+  transmitMessage[3] = top_1_set.dac_setting_scaled_and_calibrated & 0x00FF; // Top 1 set voltage lo byte
+  transmitMessage[4] = top_2_set.dac_setting_scaled_and_calibrated >>8; // Top 2 set voltage hi byte
+  transmitMessage[5] = top_2_set.dac_setting_scaled_and_calibrated & 0x00FF; // Top 2 set voltage lo byte
+  transmitMessage[6] = heater_set_point >>8; // Heater set voltage hi byte
+  transmitMessage[7] = heater_set_point & 0x00FF; // Heater set voltage lo byte
+  unsigned int crc = ETMCRC16( &transmitMessage[0], transmitMessageLength);
 
-  BufferByte64WriteByte(&uart1_output_buffer, transmitMessage[1]>>8); // Sync
-  BufferByte64WriteByte(&uart1_output_buffer, transmitMessage[1]& 0x00FF); // Status
-  BufferByte64WriteByte(&uart1_output_buffer, transmitMessage[2] >> 8);      // Top 1 Set High Byte
-  BufferByte64WriteByte(&uart1_output_buffer, transmitMessage[2] & 0x00FF);  // Top 1 Set High Byte
-  BufferByte64WriteByte(&uart1_output_buffer, transmitMessage[3] >> 8);      // Top 2 Set High Byte
-  BufferByte64WriteByte(&uart1_output_buffer, transmitMessage[3] & 0x00FF);  // Top 2 Set High Byte
-  BufferByte64WriteByte(&uart1_output_buffer, transmitMessage[4] >> 8);     // Heater Set High Byte
-  BufferByte64WriteByte(&uart1_output_buffer, transmitMessage[4] & 0x00FF); // Heater Set High Byte
+  BufferByte64WriteByte(&uart1_output_buffer, transmitMessage[0]); // Sync
+  BufferByte64WriteByte(&uart1_output_buffer, transmitMessage[1]); // Status
+  BufferByte64WriteByte(&uart1_output_buffer, transmitMessage[2]);      // Top 1 Set High Byte
+  BufferByte64WriteByte(&uart1_output_buffer, transmitMessage[3]);  // Top 1 Set High Byte
+  BufferByte64WriteByte(&uart1_output_buffer, transmitMessage[4]);      // Top 2 Set High Byte
+  BufferByte64WriteByte(&uart1_output_buffer, transmitMessage[5]);  // Top 2 Set High Byte
+  BufferByte64WriteByte(&uart1_output_buffer, transmitMessage[6]);     // Heater Set High Byte
+  BufferByte64WriteByte(&uart1_output_buffer, transmitMessage[7]); // Heater Set High Byte
   BufferByte64WriteByte(&uart1_output_buffer, (crc >> 8));
   BufferByte64WriteByte(&uart1_output_buffer, (crc & 0xFF));
  
@@ -876,7 +829,7 @@ void A36717TransmitData(void) {
 
 
 void A36717ReceiveData(void) {
-  unsigned char message_data[10];
+  unsigned char message_data[8];
   unsigned char read_byte;
   unsigned int crc;
 
@@ -893,15 +846,13 @@ void A36717ReceiveData(void) {
       message_data[5] = BufferByte64ReadByte(&uart1_input_buffer);
       message_data[6] = BufferByte64ReadByte(&uart1_input_buffer);
       message_data[7] = BufferByte64ReadByte(&uart1_input_buffer);
-      message_data[8] = BufferByte64ReadByte(&uart1_input_buffer);
-      message_data[9] = BufferByte64ReadByte(&uart1_input_buffer);
       crc = BufferByte64ReadByte(&uart1_input_buffer);
       crc <<= 8;
       crc += BufferByte64ReadByte(&uart1_input_buffer);
-      if (crc == 0x5555) {
-	A36717DownloadData(message_data);
-	global_data_A36717.counter_100us_high_side_loss = 0;
-	return;  // Stop after one successful message
+      if (crc == ETMCRC16(&message_data[0],8)) {
+	       A36717DownloadData(message_data);
+	       global_data_A36717.counter_100us_high_side_loss = 0;
+	       return;  // Stop after one successful message
       }
     }
   }
@@ -922,24 +873,18 @@ void A36717DownloadData(unsigned char *msg_data) {
   temp = msg_data[2];
   temp <<= 8;
   temp += msg_data[3];
-  top_1_raw_vmon.filtered_adc_reading = 0xFFFF-temp;
-  ETMAnalogScaleCalibrateADCReading(&top_1_raw_vmon);
+  top_raw_vmon.filtered_adc_reading = 0xFFFF-temp;
+  ETMAnalogScaleCalibrateADCReading(&top_raw_vmon);
 
   temp = msg_data[4];
   temp <<= 8;
   temp += msg_data[5];
-  top_2_raw_vmon.filtered_adc_reading = 0xFFFF-temp;
-  ETMAnalogScaleCalibrateADCReading(&top_2_raw_vmon);
+  bias_vmon.filtered_adc_reading = temp;
+  ETMAnalogScaleCalibrateADCReading(&bias_vmon);
 
   temp = msg_data[6];
   temp <<= 8;
   temp += msg_data[7];
-  bias_vmon.filtered_adc_reading = temp;
-  ETMAnalogScaleCalibrateADCReading(&bias_vmon);
-
-  temp = msg_data[8];
-  temp <<= 8;
-  temp += msg_data[9];
   switch ((msg_data[0] & 0x0F)) 
     {
     case TOP_1_VMON_SELECT:
@@ -998,16 +943,6 @@ void A36717DownloadData(unsigned char *msg_data) {
 
 
 
-
-unsigned int calculateCRC(unsigned int crc, const void *data_ptr, unsigned int data_length) //returns 16 bit calculated CRC based on CRCtable.
-{
-  const uint8_t *c = data_ptr;
-
-    while (data_length--)
-        crc = (crc << 8) ^ crctable[((crc >> 8) ^ *c++)];
-
-    return crc;
-}
 
 
 
