@@ -142,11 +142,6 @@ void DoA36717(void) {
     do_control = 0;
     DoControlLoop(&bias_supply);
     DoControlLoop(&top_supply);
-    SPI2STAT &= SPI_RX_OVFLOW_CLR;
-    if(SPI2STATbits.SPIRBF)
-    {
-      return_data = SPI2BUF;
-    }
     dac_return_value= WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_A, top_supply.dac_setting);
     dac_return_value= WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, bias_supply.dac_setting);
     
@@ -168,11 +163,7 @@ void DoA36717(void) {
     }
   }
 
-    SPI2STAT &= SPI_RX_OVFLOW_CLR;
-    if(SPI2STATbits.SPIRBF)
-    {
-      return_data = SPI2BUF;
-    }
+   
     dac_return_value= WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, bias_supply.dac_setting);
 
 
@@ -314,7 +305,7 @@ void InitializeA36717(void) {
 #define PS_MAX_DAC_OUTPUT       0x8000
 #define PS_MIN_DAC_OUTPUT       0x1A00
 #define BIAS_MIN_DAC_OUTPUT     10000
-#define DAC_FAST_STEP           0x0006
+#define DAC_FAST_STEP           0x0004
 #define DAC_SLOW_STEP           0x0001
 
 #define BIAS_TARGET             40000   // 400V
@@ -767,11 +758,7 @@ void UpdateBias (void) {
         global_data_A36717.last_detected_PRF = temp;
         bias_supply.dac_setting = temp;
         top_supply.dac_setting = top_drive_per_PRF[global_data_A36717.detected_PRF];
-        SPI2STAT &= SPI_RX_OVFLOW_CLR;
-        if(SPI2STATbits.SPIRBF)
-        {
-          return_data = SPI2BUF;
-        }
+        
         dac_return_value= WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, bias_supply.dac_setting);
         WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_A, top_supply.dac_setting);
       }
@@ -783,11 +770,7 @@ void UpdateBias (void) {
         global_data_A36717.last_detected_PRF = temp;
         bias_supply.dac_setting = temp;
         top_supply.dac_setting = top_drive_per_PRF[global_data_A36717.detected_PRF];
-        SPI2STAT &= SPI_RX_OVFLOW_CLR;
-        if(SPI2STATbits.SPIRBF)
-        {
-          return_data = SPI2BUF;
-        }
+        
         dac_return_value= WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, bias_supply.dac_setting);
         WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_A, top_supply.dac_setting);
       }
