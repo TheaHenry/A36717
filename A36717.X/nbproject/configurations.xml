@@ -5,8 +5,6 @@
                    displayName="Header Files"
                    projectFiles="true">
       <itemPath>A36717.h</itemPath>
-      <itemPath>A36717SERIAL.h</itemPath>
-      <itemPath>ETM_CRC.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -16,7 +14,6 @@
                    displayName="Source Files"
                    projectFiles="true">
       <itemPath>A36717.c</itemPath>
-      <itemPath>ETM_CRC.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -40,9 +37,8 @@
       <compileType>
         <linkerTool>
           <linkerLibItems>
-            <linkerLibFileItem>../../91-36994/Version_ZZZ/lib/30F/ETM_CORE.X_30f6014a.a</linkerLibFileItem>
-            <linkerLibFileItem>../../91-36994/Version_01/lib/ETM_EEPROM_INTERNAL.a</linkerLibFileItem>
-            <linkerLibFileItem>../../91-36994/ETM_LIBRARY/Version_01/lib/ETM_LINAC_CAN.a</linkerLibFileItem>
+            <linkerLibFileItem>../../91-36994/Version_02/lib/ETM_CORE_30F6014A.a</linkerLibFileItem>
+            <linkerLibFileItem>../../91-36994/Version_02/lib/ETM_LINAC_CAN_30F6014A.a</linkerLibFileItem>
           </linkerLibItems>
         </linkerTool>
         <archiverTool>
@@ -170,7 +166,7 @@
       </C30-LD>
       <C30Global>
         <property key="common-include-directories"
-                  value="..\..\91-36994\Version_01\inc"/>
+                  value="..\..\91-36994\Version_02\inc"/>
         <property key="dual-boot-partition" value="0"/>
         <property key="fast-math" value="false"/>
         <property key="generic-16-bit" value="false"/>

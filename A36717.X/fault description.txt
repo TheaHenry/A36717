@@ -1,0 +1,31 @@
+Modulator Reported Faults:
+
+Bias UV - cold fault - modulator disables pulse, turns off heater.
+Bias OV - hot fault - business as usual.
+
+Top1 UV - hot fault - modulator disables pulse.
+Top1 OV - hot fault - modulator disables pulse.
+Top2 UV - hot fault - modulator disables pulse.
+Top2 OV - hot fault - modulator disables pulse.
+
+Communication fault (within modulator) - cold fault- modulator disables pulse, turns off top and heater supplies.
+
+PIC timeout fault- it is reported through hardware, but I can't do anything about it (I am not responding).
+
+HTR UV - Only checking after heater has been on for 10 seconds. Restart heater. If heater retarts with a fault for 3 times, it will turn off and send a HTR not ready message.
+HTR OV - Restart heater. If heater retarts with a fault for 3 times, it will turn off and send a HTR not ready message.
+HTR UC - Only checking after heater has been on for 10 seconds. Restart heater. If heater retarts with a fault for 3 times, it will turn off and send a HTR not ready message.
+HTR OC - Restart heater. If heater retarts with a fault for 3 times, it will turn off and send a HTR not ready message. Heater control has a current limit. The heater OC fault is set higher than the current limit.
+HTR Not Ready - cold fault- modulator disables pulse. heater could not recover from a fault.
+
+Note- you could get a HTR OV fault that is no longer relevant (heater tried to recover, and succeeded). In this case, the HTR not ready will not be asserted, but the individual fault will. This would be helpful information in the fault log/ troubleshooting. You may get bad RF if the heater was reseting during a pulse- the fact that the heater had a problem would be logged, so you would be able to explain the performance glitch.
+You can clear the heater faults by sending a reset bit. The only way to clear a HTR not ready is by power cycle.
+
+CAN communication faults- managed by pulse monitor board.
+
+Fault thresholds are currently hard coded into the firmware - could be communicated through CAN if one would want.
+
+Right now I am not using the heater warmup signal for anything.
+
+
+

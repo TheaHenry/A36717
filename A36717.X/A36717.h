@@ -11,7 +11,6 @@
 #include <incap.h>
 #include "ETM.h"
 #include "P1395_CAN_SLAVE.h"
-#include "ETM_CRC.h"
 
 #define FCY_CLK     10000000
 
@@ -25,26 +24,11 @@
   SPI2   - Used/Configured by LTC265X Module
 
   Timer3 - Used to time 100us
+  Timer2 - PRF detection
 
   ADC Module - NOT USED
+  IC4 Module - PRF detection
 
-*/
-
-
-
-
-
-
-/*
-  
-  Hardware Module Resource Usage
-  
-  SPI2   - Used/Configured by LTC265X Module
-  Timer 4 - UART RX
-  * Timer5 - UART TX
-  * Timer3 - 10ms timer
-  
-  
 */
 
 

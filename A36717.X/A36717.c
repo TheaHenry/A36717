@@ -96,7 +96,7 @@ void DoStateMachine(void) {
   case STATE_OPERATE:
     PIN_BIAS_ENABLE = ENABLE_SUPPLY;
     PIN_TOP_ENABLE  = ENABLE_SUPPLY;
-    top_supply.dac_setting = 0x2B00;
+    top_supply.dac_setting = 0x2000;
     bias_supply.dac_setting = 0x3000;
     WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, bias_supply.dac_setting);
     WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_A, top_supply.dac_setting);
@@ -128,7 +128,7 @@ void DoA36717(void) {
 
   if ((PIN_PIC_COLD_FLT == 1) || (PIN_PIC_HOT_FLT == 1))
   {
-      //PIN_PIC_PULSE_ENABLE_NOT = 1;
+      //PIN_PIC_PULSE_ENABLE_NOT = 1; // ***This should be uncommented later ***
   }
   else
   {
@@ -202,7 +202,7 @@ void DoA36717(void) {
     if (global_data_A36717.counter_100us_high_side_loss > HIGH_SIDE_TIMEOUT) 
     {
       _FAULT_HIGH_SIDE_COMM_LOSS = 1;
-      //PIN_PIC_COLD_FLT = 1;
+      //PIN_PIC_COLD_FLT = 1; // ***This should be uncommented later ***
 
     } 
     else 
@@ -247,8 +247,8 @@ void DoA36717(void) {
       slave_board_data.log_data[11] = heater_set_point;
       
       ETMCanSlaveSetDebugRegister(0x0, bias_supply.dac_setting);
-      ETMCanSlaveSetDebugRegister(0x1,global_data_A36717.detected_PRF );
-      ETMCanSlaveSetDebugRegister(0x2, detected_PRF_log[1]);
+      ETMCanSlaveSetDebugRegister(0x1,top_supply.dac_setting );
+      ETMCanSlaveSetDebugRegister(0x2, global_data_A36717.detected_PRF);
       ETMCanSlaveSetDebugRegister(0x3, detected_PRF_log[2]);
       ETMCanSlaveSetDebugRegister(0x4, detected_PRF_log[3]);
       ETMCanSlaveSetDebugRegister(0x5, detected_PRF_log[4]);
@@ -611,7 +611,7 @@ void CheckAnalogFaults(void) {
   // ------------------- CHECK BIAS VOLTAGE FAULTS -------------------- //
   if (ETMAnalogCheckOverAbsolute(&bias_vmon)) {
     _FAULT_BIAS_OVER_VOLTAGE_ABSOLUTE = 1;
-   // PIN_PIC_HOT_FLT = 1;
+   // PIN_PIC_HOT_FLT = 1; // ***This should be uncommented later ***
     PIN_BIAS_FLT = 1;
   } else {
     if (ETMCanSlaveGetSyncMsgResetEnable()) {
@@ -624,7 +624,7 @@ void CheckAnalogFaults(void) {
   if (ETMAnalogCheckUnderAbsolute(&bias_vmon)) {
     if (global_data_A36717.control_state > STATE_BIAS_SUPPLY_RAMP_UP) {
       _FAULT_BIAS_UNDER_VOLTAGE_ABSOLUTE = 1;
-    //  PIN_PIC_COLD_FLT = 1;
+    //  PIN_PIC_COLD_FLT = 1; // ***This should be uncommented later ***
       PIN_BIAS_FLT = 1;
 
     }
@@ -640,7 +640,7 @@ void CheckAnalogFaults(void) {
   // ---------------------- CHECK TOP 1 VOLTAGE FAULTS ------------------- //
   if (ETMAnalogCheckOverAbsolute(&top_1_vmon)) {
     _FAULT_TOP_1_OVER_VOLTAGE_ABSOLUTE = 1;
-   // PIN_PIC_HOT_FLT = 1;
+   // PIN_PIC_HOT_FLT = 1; // ***This should be uncommented later ***
     PIN_TOP_FLT = 1;
   } else {
     if (ETMCanSlaveGetSyncMsgResetEnable()) {
@@ -653,7 +653,7 @@ void CheckAnalogFaults(void) {
   if (ETMAnalogCheckUnderAbsolute(&top_1_vmon)) {
     if (global_data_A36717.control_state > STATE_TOP_RAMP_UP) {
       _FAULT_TOP_1_UNDER_VOLTAGE_ABSOLUTE = 1;
-    //  PIN_PIC_HOT_FLT = 1;
+    //  PIN_PIC_HOT_FLT = 1; // ***This should be uncommented later ***
       PIN_TOP_FLT = 1;
     }
   } else {
@@ -668,7 +668,7 @@ void CheckAnalogFaults(void) {
   // ---------------------- CHECK TOP 2 VOLTAGE FAULTS ------------------- //
   if (ETMAnalogCheckOverAbsolute(&top_2_vmon)) {
     _FAULT_TOP_2_OVER_VOLTAGE_ABSOLUTE = 1;
-    //PIN_PIC_HOT_FLT = 1;
+    //PIN_PIC_HOT_FLT = 1; // ***This should be uncommented later ***
     PIN_TOP_FLT = 1;
   } else {
     if (ETMCanSlaveGetSyncMsgResetEnable()) {
@@ -681,7 +681,7 @@ void CheckAnalogFaults(void) {
   if (ETMAnalogCheckUnderAbsolute(&top_2_vmon)) {
     if (global_data_A36717.control_state > STATE_TOP_RAMP_UP) {
       _FAULT_TOP_2_UNDER_VOLTAGE_ABSOLUTE = 1;
-    //  PIN_PIC_HOT_FLT = 1;
+    //  PIN_PIC_HOT_FLT = 1; // ***This should be uncommented later ***
       PIN_TOP_FLT = 1;
     }
   } else {
@@ -732,8 +732,8 @@ else
 if (global_data_A36717.status & 0x10)
 {
   _FAULT_HEATER_NOT_READY = 1;
-  //PIN_PIC_COLD_FLT = 1;
-  //PIN_PIC_HTR_FLT = 1;
+  //PIN_PIC_COLD_FLT = 1; // ***This should be uncommented later ***
+  //PIN_PIC_HTR_FLT = 1; // ***This should be uncommented later ***
 }
 else
 {
@@ -971,7 +971,6 @@ void __attribute__((interrupt, no_auto_psv)) _IC4Interrupt(void) {
             if (temp- last_PRF_sample >=1)
             {
                 last_PRF_sample = temp;
-
             }
             else
             {
