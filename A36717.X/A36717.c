@@ -94,8 +94,8 @@ void DoStateMachine(void) {
 
 
   case STATE_OPERATE:
-    PIN_BIAS_ENABLE = ENABLE_SUPPLY;
-    PIN_TOP_ENABLE  = ENABLE_SUPPLY;
+    PIN_BIAS_ENABLE = !ENABLE_SUPPLY;
+    PIN_TOP_ENABLE  = !ENABLE_SUPPLY;
     top_supply.dac_setting = 0x2000;
     bias_supply.dac_setting = 0x3000;
     WriteLTC265X(&U10_LTC2654, LTC265X_WRITE_AND_UPDATE_DAC_C, bias_supply.dac_setting);
@@ -121,6 +121,14 @@ void DoStateMachine(void) {
 
 void DoA36717(void) {
   A36717ReceiveData();
+  
+  top_1_vmon.reading_scaled_and_calibrated = top_1_set.set_point;
+  top_2_vmon.reading_scaled_and_calibrated = top_2_set.set_point;
+  bias_vmon.reading_scaled_and_calibrated = bias_supply.target;
+  heater_vmon.reading_scaled_and_calibrated = heater_set_point;
+  heater_1_imon.reading_scaled_and_calibrated = 1500;
+  heater_2_imon.reading_scaled_and_calibrated = 1400;
+
   bias_supply.reading = bias_vmon.reading_scaled_and_calibrated;
   top_supply.reading = top_raw_vmon.reading_scaled_and_calibrated;
 
@@ -201,7 +209,7 @@ void DoA36717(void) {
     
     if (global_data_A36717.counter_100us_high_side_loss > HIGH_SIDE_TIMEOUT) 
     {
-      _FAULT_HIGH_SIDE_COMM_LOSS = 1;
+      _FAULT_HIGH_SIDE_COMM_LOSS = 0;
       //PIN_PIC_COLD_FLT = 1; // ***This should be uncommented later ***
 
     } 
@@ -695,7 +703,7 @@ void CheckAnalogFaults(void) {
 // ------------------------ HEATER FAULTS ------------------------ //
 if (global_data_A36717.status & 0x01)
 {
-  _FAULT_HEATER_OVER_VOLTAGE_ABSOLUTE = 1;
+  _FAULT_HEATER_OVER_VOLTAGE_ABSOLUTE = 0;
 }
 else
 {
@@ -704,7 +712,7 @@ else
 
 if (global_data_A36717.status & 0x02)
 {
-  _FAULT_HEATER_UNDER_VOLTAGE_ABSOLUTE = 1;
+  _FAULT_HEATER_UNDER_VOLTAGE_ABSOLUTE = 0;
 }
 else
 {
@@ -713,7 +721,7 @@ else
 
 if (global_data_A36717.status & 0x04)
 {
-  _FAULT_HEATER_OVER_CURRENT_ABSOLUTE  = 1;
+  _FAULT_HEATER_OVER_CURRENT_ABSOLUTE  = 0;
 }
 else
 {
@@ -722,7 +730,7 @@ else
 
 if (global_data_A36717.status & 0x08)
 {
-  _FAULT_HEATER_UNDER_CURRENT_ABSOLUTE = 1;
+  _FAULT_HEATER_UNDER_CURRENT_ABSOLUTE = 0;
 }
 else
 {
@@ -731,7 +739,7 @@ else
 
 if (global_data_A36717.status & 0x10)
 {
-  _FAULT_HEATER_NOT_READY = 1;
+  _FAULT_HEATER_NOT_READY = 0;
   //PIN_PIC_COLD_FLT = 1; // ***This should be uncommented later ***
   //PIN_PIC_HTR_FLT = 1; // ***This should be uncommented later ***
 }
